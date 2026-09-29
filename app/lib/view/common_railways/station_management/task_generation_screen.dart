@@ -82,6 +82,10 @@ class _TaskGenerationScreenState extends State<TaskGenerationScreen> {
   // used by the per-slot preview to show WHO will get each task. Mirrors the
   // backend slotSupervisorResolver in taskManagementService.
   final Map<String, String> _shiftSupervisorNames = {};
+  // shift -> uid of the first supervisor recorded for that shift: used to
+  // auto-select the shift's supervisor in the dropdown (same first-match rule
+  // the backend resolver uses).
+  final Map<String, String> _shiftSupervisorUids = {};
 
   // Redesigned list UX: search filter + collapsible per-area detail.
   final Set<String> _expandedAreaIds = {};
@@ -256,17 +260,46 @@ class _TaskGenerationScreenState extends State<TaskGenerationScreen> {
   Future<void> _loadSupervisorShiftMap(String stationId) async {
     try {
       final supShifts = await AreaCleaningRepository.getSupervisorShifts(stationId: stationId);
-      final map = <String, String>{};
+      final names = <String, String>{};
+      final uids = <String, String>{};
       for (final s in supShifts) {
         final shift = s.shift;
         if (shift != null && shift.isNotEmpty && shift != 'none') {
-          map[shift] = s.fullName.isNotEmpty ? s.fullName : 'Assigned supervisor';
+          names[shift] = s.fullName.isNotEmpty ? s.fullName : 'Assigned supervisor';
+          uids.putIfAbsent(shift, () => s.uid);
         }
       }
-      if (mounted) setState(() => _shiftSupervisorNames..clear()..addAll(map));
+      if (mounted) {
+        setState(() {
+          _shiftSupervisorNames..clear()..addAll(names);
+          _shiftSupervisorUids..clear()..addAll(uids);
+        });
+      }
+      // After the shift map is ready, auto-pick the supervisor recorded for the
+      // currently-selected shift so the admin does not have to pick manually.
+      _autoSelectSupervisorForShift(_selectedShift);
     } catch (e) {
       debugPrint('Error loading supervisor shifts: $e');
-      if (mounted) setState(() => _shiftSupervisorNames.clear());
+      if (mounted) {
+        setState(() {
+          _shiftSupervisorNames.clear();
+          _shiftSupervisorUids.clear();
+        });
+      }
+    }
+  }
+
+  // Selects the contractor supervisor recorded for the given shift (e.g.
+  // choosing "Evening" auto-picks the evening shift-holder). Only acts when the
+  // shift has a recorded holder; otherwise the current/previous selection is
+  // kept untouched so the admin can still choose manually.
+  void _autoSelectSupervisorForShift(String shift) {
+    final uid = _shiftSupervisorUids[shift.toLowerCase()];
+    if (uid == null || uid.isEmpty) return;
+    final match = _supervisors.where((s) => s.uid == uid).firstOrNull;
+    if (match == null) return;
+    if (_selectedSupervisor?.uid != match.uid) {
+      setState(() => _selectedSupervisor = match);
     }
   }
 
@@ -1119,7 +1152,9 @@ int _defaultFrequencyForArea(StationArea area) {
                         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                         .toList(),
                     onChanged: (v) {
-                      if (v != null) setState(() => _selectedShift = v);
+                      if (v == null) return;
+                      setState(() => _selectedShift = v);
+                      _autoSelectSupervisorForShift(v);
                     },
                   ),
                 ),
@@ -1142,6 +1177,24 @@ int _defaultFrequencyForArea(StationArea area) {
               ],
               onChanged: (v) => setState(() => _selectedSupervisor = v),
             ),
+            // Tells the admin when the supervisor was auto-picked from the
+            // assigned shift (so the auto-selection isn't mistaken for a manual choice).
+            if (_shiftSupervisorNames[_selectedShift.toLowerCase()] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 14, color: Colors.green[700]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Auto-selected from the assigned $_selectedShift shift. Changing the shift re-picks the supervisor.',
+                        style: TextStyle(fontSize: 12, color: Colors.green[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
