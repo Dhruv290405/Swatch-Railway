@@ -261,7 +261,7 @@ static Future<Map<String, dynamic>> getFrequencyStatus({required String date, re
     );
   }
 
-  static Future<Map<String, dynamic>> generateTasks({List<String>? areaIds, String? date, List<String>? workerIds, String? supervisorId, String? shift, String? frequency, String? activityType, String? taskTypeId, String? taskTypeName, Map<String, dynamic>? areaActivities, Map<String, int>? areaFrequencies, Map<String, int>? areaTimes, bool normalize = false}) async {
+  static Future<Map<String, dynamic>> generateTasks({List<String>? areaIds, String? date, List<String>? workerIds, String? supervisorId, String? shift, String? frequency, String? activityType, String? taskTypeId, String? taskTypeName, Map<String, dynamic>? areaActivities, Map<String, int>? areaFrequencies, Map<String, int>? areaTimes, Map<String, List<String>>? areaTimeSlots, bool normalize = false}) async {
     return await _apiCall(
       method: 'POST',
       path: '/api/tasks-v2/generate',
@@ -278,6 +278,7 @@ static Future<Map<String, dynamic>> getFrequencyStatus({required String date, re
         if (areaActivities != null && areaActivities.isNotEmpty) 'areaActivities': areaActivities,
         if (areaFrequencies != null && areaFrequencies.isNotEmpty) 'areaFrequencies': areaFrequencies,
         if (areaTimes != null && areaTimes.isNotEmpty) 'areaTimes': areaTimes,
+        if (areaTimeSlots != null && areaTimeSlots.isNotEmpty) 'areaTimeSlots': areaTimeSlots,
         if (normalize) 'normalize': true,
       },
       parser: (data) => data,

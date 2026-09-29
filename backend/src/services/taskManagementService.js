@@ -1242,25 +1242,46 @@ class TaskManagementService {
       }
       const taskActivities = activities.length > 0 ? activities : [null];
       const cleaningFrequency = frequency || areaData.cleaningFrequency || areaData.frequency || 'daily';
-      // Per-area override: contractor admin assigns how many times per day.
-      const areaFreq = (areaFrequencies && areaFrequencies[areaId] !== undefined)
-        ? parseInt(areaFrequencies[areaId], 10)
-        : null;
-      let frequencyTimes = areaFreq
-        ? this._buildTimeslots(areaFreq, cleaningFrequency)
-        : (areaData.frequencyTimes || this._getDefaultFrequencyTimes(cleaningFrequency));
+      // Per-area EXACT time slots: when the admin picks specific times, those
+      // are the authoritative slot set — the count/frequency machinery below
+      // is skipped. Times must be 24-hour HH:MM; each slot keeps its own shift
+      // (derived from the time) instead of being filtered to the chosen shift.
+      const customTimes = data.areaTimeSlots && data.areaTimeSlots[areaId];
+      const useCustomTimes = Array.isArray(customTimes) && customTimes.length > 0;
+      let frequencyTimes;
+      if (useCustomTimes) {
+        const cleaned = [];
+        for (const raw of customTimes) {
+          const m = /^(\d{1,2}):([0-5]\d)$/.exec(String(raw).trim());
+          if (!m) {
+            throw new ValidationError(`Invalid time slot "${raw}" for area ${areaData.areaName || areaCode || areaId}. Use 24-hour HH:MM.`);
+          }
+          cleaned.push(`${String(m[1]).padStart(2, '0')}:${m[2]}`);
+        }
+        frequencyTimes = [...new Set(cleaned)];
+      } else {
+        // Per-area override: contractor admin assigns how many times per day.
+        const areaFreq = (areaFrequencies && areaFrequencies[areaId] !== undefined)
+          ? parseInt(areaFrequencies[areaId], 10)
+          : null;
+        frequencyTimes = areaFreq
+          ? this._buildTimeslots(areaFreq, cleaningFrequency)
+          : (areaData.frequencyTimes || this._getDefaultFrequencyTimes(cleaningFrequency));
+      }
       const normalizeDesired = (normalize && areaTimes && areaTimes[areaId] != null)
         ? parseInt(areaTimes[areaId], 10) || 0
         : null;
       // In normalize mode the daily count is authoritative, so the slot pool must be
-      // wide enough to hold that many distinct occurrences. Expand it when needed.
-      if (normalizeDesired != null && frequencyTimes.length < normalizeDesired) {
+      // wide enough to hold that many distinct occurrences. Expand it when needed
+      // (custom time slots are already the exact set and never auto-expand).
+      if (normalizeDesired != null && !useCustomTimes && frequencyTimes.length < normalizeDesired) {
         frequencyTimes = this._buildTimeslots(normalizeDesired, cleaningFrequency);
       }
       // Shift-window enforcement: when a specific shift was chosen, only slots
       // whose time falls inside that shift's window are generated. Choosing
-      // "morning" therefore never produces 14:00/18:00/22:00 tasks.
-      if (genShift) {
+      // "morning" therefore never produces 14:00/18:00/22:00 tasks. Custom time
+      // slots carry their own shift and bypass this filter.
+      if (genShift && !useCustomTimes) {
         frequencyTimes = frequencyTimes.filter(t => this._shiftForTime(t) === genShift);
       }
       const batch = db.batch();
