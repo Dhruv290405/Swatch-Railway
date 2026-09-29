@@ -151,3 +151,52 @@ describe('Persistent contractor-supervisor face baseline', () => {
     expect(reko.compareFaces).not.toHaveBeenCalled();
   });
 });
+
+describe('Mid/end attendance counts only ACTIONABLE tasks (missed windows excluded)', () => {
+  it('mid passes on half the actionable tasks even when other windows already lapsed', async () => {
+    vi.useFakeTimers();
+    // Fixed clock: 2024-01-15 14:30 IST
+    vi.setSystemTime(new Date('2024-01-15T09:00:00Z'));
+    try {
+      seedUsers(contractor());
+      // 2 MISSED tasks: 1-hour start window (13:00+1h = 14:00) has elapsed.
+      state.cleaningTasks.push(
+        { date: '2024-01-15', status: 'pending', shift: 'morning', supervisorId: 'w1', scheduledTime: '13:00' },
+        { date: '2024-01-15', status: 'pending', shift: 'morning', supervisorId: 'w1', scheduledTime: '13:30' },
+      );
+      // 1 ACTIONABLE completed task: window (14:00+1h = 15:00) still open.
+      state.cleaningTasks.push({ date: '2024-01-15', status: 'completed', shift: 'morning', supervisorId: 'w1', scheduledTime: '14:00' });
+
+      await attend({ attendanceType: 'start', imageUrl: 'start.jpg' }, contractor());
+      // Actionable denominator is 1 (the 2 missed tasks never count), so 1
+      // completed >= ceil(1/2) → mid is allowed.
+      await attend({ attendanceType: 'mid', imageUrl: 'mid.jpg' }, contractor());
+      const doc = Object.values(state['station_cleaning_attendance'])[0];
+      expect(doc.isMidMarked).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('end still requires all ACTIONABLE tasks, ignoring lapsed-window tasks', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-15T09:00:00Z'));
+    try {
+      seedUsers(contractor());
+      state.cleaningTasks.push(
+        { date: '2024-01-15', status: 'pending', shift: 'morning', supervisorId: 'w1', scheduledTime: '13:00' },
+        { date: '2024-01-15', status: 'completed', shift: 'morning', supervisorId: 'w1', scheduledTime: '14:00' },
+      );
+      state['stationShiftSummaries'] = {
+        s1: { supervisorId: 'w1', date: '2024-01-15', status: 'submitted' },
+      };
+      await attend({ attendanceType: 'start', imageUrl: 'start.jpg' }, contractor());
+      await attend({ attendanceType: 'mid', imageUrl: 'mid.jpg' }, contractor());
+      await attend({ attendanceType: 'end', imageUrl: 'end.jpg' }, contractor());
+      const doc = Object.values(state['station_cleaning_attendance'])[0];
+      expect(doc.isEndMarked).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

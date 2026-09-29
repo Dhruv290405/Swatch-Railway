@@ -553,7 +553,10 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
 
   // ─── Task Assignment ─────────────────────────────────────────────────────
 
-  int get _activeTaskCount => _tasks.where((t) => (t['status'] ?? '').toString().toLowerCase() != 'cancelled').length;
+  // Actionable = non-cancelled tasks whose start window has not elapsed. Missed
+  // tasks (window lapsed, never started) can no longer be worked, so they must
+  // not inflate the half-mid denominator — mirrors the backend completion logic.
+  int get _activeTaskCount => _tasks.where((t) => (t['status'] ?? '').toString().toLowerCase() != 'cancelled' && !_isTaskMissed(t)).length;
   bool get _hasCompletedHalf => _activeTaskCount > 0 && _completedCount >= (_activeTaskCount / 2).ceil();
 
   // A task is MISSED when its 1-hour start window (scheduledTime <= now <

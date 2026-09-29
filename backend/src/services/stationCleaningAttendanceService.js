@@ -74,6 +74,26 @@ class StationCleaningAttendanceService {
       return null;
     };
 
+    // A task is MISSED when its 1-hour start window (scheduledTime <= now <
+    // scheduledTime + 1h) has elapsed without it ever being started. Missed
+    // tasks can never be worked now, so they must not inflate the completion
+    // denominator (same rule as _isTaskMissed in stationCleaningService.js).
+    const isTaskMissed = (t) => {
+      const status = String(t.status || '').toLowerCase();
+      if (!['pending', 'assigned', ''].includes(status)) return false;
+      const scheduledDate = t.scheduledDate || t.date || '';
+      const scheduledTime = t.scheduledTime || '';
+      if (!scheduledDate || !scheduledTime) return false;
+      const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate);
+      const timeMatch = /^(\d{2}):(\d{2})$/.exec(scheduledTime);
+      if (!dateMatch || !timeMatch) return false;
+      const [, y, mo, d] = dateMatch.map(Number);
+      const [, hh, mm] = timeMatch.map(Number);
+      const scheduledIST = new Date(Date.UTC(y, mo - 1, d, hh, mm, 0));
+      const nowIST = Date.now() + 5.5 * 60 * 60 * 1000;
+      return nowIST >= scheduledIST.getTime() + 60 * 60 * 1000;
+    };
+
     const getTaskCompletion = async () => {
       try {
         const ownShift = await getRecordedShift(workerId);
@@ -88,11 +108,12 @@ class StationCleaningAttendanceService {
         taskSnap.forEach(doc => {
           const t = doc.data();
           if (t.date !== todayIST) return;
-          // Cancelled tasks are terminal and never block shifts (the app's
-          // own "Complete All Tasks First" check treats them the same way),
-          // so they must not inflate the completion denominator either.
+          // Cancelled and MISSED tasks are terminal and never block shifts
+          // (the app's own "Complete All Tasks First" check treats them the
+          // same way), so they must not inflate the completion denominator.
           const status = String(t.status || '').toLowerCase();
           if (status === 'cancelled') return;
+          if (isTaskMissed(t)) return;
           // Only tasks belonging to the user's recorded shift count — the
           // app only ever shows those, so the ratios stay aligned.
           const shift = t.shift ? String(t.shift).trim().toLowerCase() : null;

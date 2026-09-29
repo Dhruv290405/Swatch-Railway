@@ -2517,7 +2517,11 @@ class StationCleaningService {
     if (!Array.isArray(areas) || areas.length < 1) {
       throw new ValidationError(`At least 1 area must be submitted for the shift summary. Received ${Array.isArray(areas) ? areas.length : 0}.`);
     }
-    const photoCount = areas.filter(a => !!(a.photoUrl && String(a.photoUrl).trim())).length;
+    const hasPhoto = (a) => {
+      if (a.photoUrl && String(a.photoUrl).trim()) return true;
+      return Array.isArray(a.photoUrls) && a.photoUrls.some(u => u && String(u).trim());
+    };
+    const photoCount = areas.filter(hasPhoto).length;
     const requiredPhotos = areas.length > 5 ? 5 : areas.length;
     if (photoCount < requiredPhotos) {
       if (areas.length > 5) {
@@ -2526,11 +2530,11 @@ class StationCleaningService {
       throw new ValidationError(`Photos are required for every area worked. Please add photos for all ${areas.length} area(s). Photos uploaded: ${photoCount}/${areas.length}.`);
     }
     for (const a of areas) {
-      const hasPhoto = !!(a.photoUrl && String(a.photoUrl).trim());
+      const hasAreaPhoto = hasPhoto(a);
       if (!String(a.remark || '').trim()) {
         throw new ValidationError(`Remark is required for area ${a.areaName || a.areaId || ''}`);
       }
-      if (hasPhoto && (a.latitude === undefined || a.latitude === null || a.longitude === undefined || a.longitude === null)) {
+      if (hasAreaPhoto && (a.latitude === undefined || a.latitude === null || a.longitude === undefined || a.longitude === null)) {
         throw new ValidationError(`Live location (latitude/longitude) is required for area ${a.areaName || a.areaId || ''}`);
       }
     }
@@ -2623,6 +2627,9 @@ class StationCleaningService {
         workDone,
         tenderedAreaPerDay: tenderedAreaPerDay || workDone,
         photoUrl: a.photoUrl || '',
+        photoUrls: Array.isArray(a.photoUrls) && a.photoUrls.some(u => u && String(u).trim())
+          ? a.photoUrls.filter(u => u && String(u).trim())
+          : (a.photoUrl && String(a.photoUrl).trim() ? [a.photoUrl] : []),
         scheduledTime: a.scheduledTime || '',
         taskId: a.taskId || null,
         latitude: a.latitude,

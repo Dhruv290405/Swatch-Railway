@@ -57,7 +57,11 @@ class _AreaEntry {
   final String? taskRemarks;
   final double? taskGpsLat;
   final double? taskGpsLng;
-  XFile? photo;
+
+  /// Every photo captured for this area during the current session, each with
+  /// its own live GPS. Retaking a photo APPENDS instead of replacing, so an
+  /// earlier photo is never deleted. All are uploaded on submit.
+  final List<_CapturedPhoto> photos = [];
   final TextEditingController remarkCtrl;
   double? latitude;
   double? longitude;
@@ -65,9 +69,9 @@ class _AreaEntry {
 
   double get workDone => basicAreaSqFt * times;
   bool get hasReferencePhoto => afterPhotoUrl != null && afterPhotoUrl!.isNotEmpty;
-  bool get isVerified => photo != null && gpsCaptured;
+  bool get isVerified => photos.isNotEmpty;
   bool get hasUsablePhoto =>
-      (photo != null && gpsCaptured) ||
+      photos.isNotEmpty ||
       (afterPhotoUrl != null && afterPhotoUrl!.isNotEmpty && latitude != null && longitude != null);
 
   _AreaEntry({
@@ -98,6 +102,14 @@ class _AreaEntry {
   final double? prefillLongitude;
 
   void dispose() => remarkCtrl.dispose();
+}
+
+/// A photo captured for a shift-summary area, frozen with its own live GPS.
+class _CapturedPhoto {
+  final XFile file;
+  final double latitude;
+  final double longitude;
+  const _CapturedPhoto({required this.file, required this.latitude, required this.longitude});
 }
 
 class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
@@ -320,11 +332,14 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
     }
 
     setState(() {
-      entry
-        ..photo = photo
-        ..latitude = position.latitude
-        ..longitude = position.longitude
-        ..gpsCaptured = true;
+      // Append so earlier captures are preserved — never replace/delete.
+      entry.photos.add(_CapturedPhoto(file: photo, latitude: position.latitude, longitude: position.longitude));
+      if (entry.latitude == null) {
+        entry
+          ..latitude = position.latitude
+          ..longitude = position.longitude;
+      }
+      entry.gpsCaptured = true;
     });
   }
 
@@ -335,11 +350,19 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
       final isResubmit = widget.existingSummaryUid != null && widget.existingSummaryUid!.isNotEmpty;
       final areasPayload = <Map<String, dynamic>>[];
       for (final e in _entries) {
-        String photoUrl = '';
-        if (e.photo != null) {
-          photoUrl = await WorkerRepository.uploadMedia(e.photo!.path);
-        } else if (e.hasUsablePhoto && e.afterPhotoUrl != null && e.afterPhotoUrl!.isNotEmpty) {
-          photoUrl = e.afterPhotoUrl!;
+        final photoUrls = <String>[];
+        for (final p in e.photos) {
+          final url = await WorkerRepository.uploadMedia(p.file.path);
+          if (url.isNotEmpty) photoUrls.add(url);
+        }
+        // Resubmission: carry the previous summary photo forward when no new
+        // photo was taken for the area, so it is not lost.
+        if (photoUrls.isEmpty &&
+            isResubmit &&
+            e.hasUsablePhoto &&
+            e.afterPhotoUrl != null &&
+            e.afterPhotoUrl!.isNotEmpty) {
+          photoUrls.add(e.afterPhotoUrl!);
         }
 
         areasPayload.add({
@@ -351,12 +374,13 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
           'times': e.times,
           'cleaningFrequency': e.cleaningFrequency,
           'tenderedAreaPerDay': e.tenderedAreaPerDay,
-          'photoUrl': photoUrl,
+          'photoUrl': photoUrls.isEmpty ? '' : photoUrls.first,
+          'photoUrls': photoUrls,
           'remark': e.isVerified ? e.remarkCtrl.text.trim() : (e.taskRemarks ?? e.remarkCtrl.text.trim()),
           'scheduledTime': e.scheduledTime,
           'taskId': e.taskId,
-          'latitude': e.latitude ?? 0,
-          'longitude': e.longitude ?? 0,
+          'latitude': e.photos.isNotEmpty ? e.photos.first.latitude : (e.latitude ?? 0),
+          'longitude': e.photos.isNotEmpty ? e.photos.first.longitude : (e.longitude ?? 0),
         });
       }
 
@@ -556,7 +580,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
   }
 
   Widget _buildAreaCard(_AreaEntry entry) {
-    final photo = entry.photo;
+    final capturedPhotos = entry.photos;
     final hasTaskPhoto = entry.afterPhotoUrl != null && entry.afterPhotoUrl!.isNotEmpty;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -650,38 +674,80 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            if (photo != null)
-              Stack(
+            if (capturedPhotos.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      image: DecorationImage(image: FileImage(File(photo.path)), fit: BoxFit.cover),
-                    ),
-                  ),
-                  if (entry.isVerified)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 160,
                         decoration: BoxDecoration(
-                          color: Colors.green[700],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.white, size: 14),
-                            SizedBox(width: 4),
-                            Text('End-of-shift photo verified',
-                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                          ],
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: FileImage(File(capturedPhotos.last.file.path)),
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
+                      if (entry.isVerified)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green[700],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.white, size: 14),
+                                SizedBox(width: 4),
+                                Text('End-of-shift photo verified',
+                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (capturedPhotos.length > 1) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 48,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: capturedPhotos.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (context, i) {
+                          final p = capturedPhotos[i];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.file(
+                              File(p.file.path),
+                              width: 64,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 64,
+                                height: 48,
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.broken_image, color: Colors.grey),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'All ${capturedPhotos.length} photos for this area are kept.',
+                      style: TextStyle(color: Colors.green[800], fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ],
               )
             else if (hasTaskPhoto)
@@ -761,7 +827,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
                 icon: Icon((entry.isVerified || entry.hasUsablePhoto) ? Icons.fact_check : Icons.camera_alt, size: 16),
                 label: Text(
                   (entry.isVerified || (widget.existingSummaryUid != null && entry.hasUsablePhoto))
-                      ? 'Retake End-of-Shift Photo'
+                      ? 'Add End-of-Shift Photo'
                       : 'Take End-of-Shift Photo',
                 ),
                 onPressed: () => _takePhoto(entry),
