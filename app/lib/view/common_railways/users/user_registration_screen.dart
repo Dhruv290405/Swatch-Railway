@@ -77,6 +77,19 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   bool _isContractAutoAssigned = false;
   bool _isEntityAutoAssigned = false;
 
+  // Contractor Admin / Contractor Master (or any contractor-role user) can
+  // only ever create contractor users — they must never be offered the
+  // 'Railway' user type.
+  bool get _isContractorRoleUser {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final role = auth.currentUser?.role;
+    if (role == 'Contractor Admin' || role == 'Contractor Master') return true;
+    return (auth.currentUser?.userType ?? '').toLowerCase() == 'contractor';
+  }
+
+  List<String> get _userTypeOptions =>
+      _isContractorRoleUser ? const ['contractor'] : const ['railway', 'contractor'];
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +98,11 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
     if (widget.draftData != null) {
       _loadDraftData(widget.draftData!);
+    }
+    // Contractor-role users default to (and are locked into) 'contractor'.
+    if (_isContractorRoleUser && _selectedUserType != 'contractor') {
+      _selectedUserType = 'contractor';
+      _selectedRole = null;
     }
     _loadAllTrains();
   }
@@ -563,15 +581,14 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
 
               DropdownButtonFormField<String>(
-                value: _selectedUserType,
+                value: _userTypeOptions.contains(_selectedUserType) ? _selectedUserType : _userTypeOptions.first,
                 decoration: const InputDecoration(
                   labelText: 'User Type *',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'railway', child: Text('Railway')),
-                  DropdownMenuItem(value: 'contractor', child: Text('Contractor')),
-                ],
+                items: _userTypeOptions
+                    .map((u) => DropdownMenuItem(value: u, child: Text(u == 'railway' ? 'Railway' : 'Contractor')))
+                    .toList(),
                 onChanged: (v) => setState(() {
                   _selectedUserType = v!;
                   _selectedRole = null;

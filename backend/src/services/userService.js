@@ -16,6 +16,14 @@ class UserService {
       throw new ValidationError("Email, Password, Role, and UserType are required.");
     }
 
+    // Contractor principals can only ever create Contractor users — never
+    // Railway ones (mirrors the app's contractor-only user type dropdown and
+    // the existing approve/reject hierarchy in this service).
+    const creatorRoleUpper = (creatorRole || '').toUpperCase().replace(/\s+/g, '_');
+    if ((creatorRoleUpper === 'CONTRACTOR_ADMIN' || creatorRoleUpper === 'CONTRACTOR_MASTER') && normalizedUserType !== 'contractor') {
+      throw new ForbiddenError('Contractor Admin / Contractor Master can only create Contractor users.');
+    }
+
     const emailQuery = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
     if (!emailQuery.empty) {
       throw new ValidationError("Email already registered.");
