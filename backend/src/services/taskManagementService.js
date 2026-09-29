@@ -1252,11 +1252,12 @@ class TaskManagementService {
       if (useCustomTimes) {
         const cleaned = [];
         for (const raw of customTimes) {
-          const m = /^(\d{1,2}):([0-5]\d)$/.exec(String(raw).trim());
-          if (!m) {
+          const s = String(raw).trim();
+          const m = /^(\d{1,2}):([0-5]\d)$/.exec(s);
+          if (!m || parseInt(m[1], 10) > 23) {
             throw new ValidationError(`Invalid time slot "${raw}" for area ${areaData.areaName || areaCode || areaId}. Use 24-hour HH:MM.`);
           }
-          cleaned.push(`${String(m[1]).padStart(2, '0')}:${m[2]}`);
+          cleaned.push(`${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}`);
         }
         frequencyTimes = [...new Set(cleaned)];
       } else {
