@@ -687,7 +687,7 @@ class StationCleaningService {
         const daySnap = await db.collection('cleaningTasks')
           .where('stationId', '==', schedule.stationId)
           .where('date', '==', dayStr)
-          .select('areaId', 'scheduledTime', 'status', 'supervisorId', 'shift')
+          .select('areaId', 'scheduledTime', 'status', 'supervisorId', 'shift', 'manualOverride')
           .get();
         daySnap.forEach(doc => {
           const d = doc.data();
