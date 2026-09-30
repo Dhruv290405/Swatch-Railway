@@ -127,7 +127,9 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
 
     selectedStatus = c.status;
     selectedContractType = c.contractType != null
-        ? (c.contractType == 'station_cleaning' ? 'Station Cleaning' : 'OBHS')
+        ? (c.contractType == 'station_cleaning'
+            ? 'Station Cleaning'
+            : (c.contractType == 'obhs' ? 'OBHS' : 'MCC'))
         : null;
     repNameController.text = c.repName ?? '';
     repDesignationController.text = c.repDesignation ?? '';
@@ -232,7 +234,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                               selectedDivision = division;
                               selectedDepot = depot;
                             });
-                            if (selectedContractType == 'Station Cleaning') {
+                            if (selectedContractType == 'Station Cleaning' || selectedContractType == 'MCC') {
                               _loadStations(division: division);
                             }
                           },
@@ -240,7 +242,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                       ),
                     ),
                   ),
-                  if (selectedContractType == 'Station Cleaning') ...[
+                  if (selectedContractType == 'Station Cleaning' || selectedContractType == 'MCC') ...[
                     const SizedBox(height: 16),
                     _buildCard(
                       title: "Station Assignment",
@@ -318,7 +320,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                               child: _buildDropdown(
                                 'Contract Type',
                                 'Select type',
-                                ['Station Cleaning'],
+                                ['Station Cleaning', 'MCC'],
                                 selectedContractType,
                                 (v) {
                                   setState(() {
@@ -328,7 +330,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                                     selectedTrainIds = [];
                                     selectedTrainNames = [];
                                   });
-                                  if (v == 'Station Cleaning' && selectedDivision != null) {
+                                  if ((v == 'Station Cleaning' || v == 'MCC') && selectedDivision != null) {
                                     _loadStations(division: selectedDivision);
                                   }
                                 },
@@ -403,7 +405,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                           ),
                         ],
 
-                        if (selectedContractType != null && selectedContractType != 'Station Cleaning' && selectedContractType != 'OBHS') ...[
+                        if (selectedContractType != null && selectedContractType != 'Station Cleaning' && selectedContractType != 'OBHS' && selectedContractType != 'MCC') ...[
                           const SizedBox(height: 12),
                           const Text('Assigned Stations *', style: TextStyle(fontWeight: FontWeight.w500)),
                           const SizedBox(height: 4),
@@ -1049,7 +1051,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
           zone: selectedZone!,
           division: selectedDivision,
           depot: selectedDepot,
-          stationIds: selectedContractType == 'Station Cleaning'
+          stationIds: (selectedContractType == 'Station Cleaning' || selectedContractType == 'MCC')
               ? (_manualStationId != null ? [_manualStationId!] : null)
               : (selectedStationIds.isNotEmpty ? selectedStationIds : null),
           trainIds: selectedContractType == 'OBHS' ? (selectedTrainIds.isNotEmpty ? selectedTrainIds : null) : null,

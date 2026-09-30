@@ -6,7 +6,7 @@ import { compareFaces } from '../services/rekognitionService.js';
 
 const router = express.Router();
 
-router.all('/api/obhs*', verifyToken, forbidContractType('station_cleaning'));
+router.all('/api/obhs*', verifyToken, forbidContractType('station_cleaning', 'mcc'));
 
 // POST/GET at collection root (no param collision)
 router.post('/api/obhs', verifyToken, obhsController.submit);

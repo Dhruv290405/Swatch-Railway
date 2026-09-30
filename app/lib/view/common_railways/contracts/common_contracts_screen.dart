@@ -172,6 +172,8 @@ class _CommonContractsScreenState extends State<CommonContractsScreen>
                 _buildTypeChip('Station Cleaning', 'station_cleaning'),
                 const SizedBox(width: 8),
                 _buildTypeChip('OBHS', 'obhs'),
+                const SizedBox(width: 8),
+                _buildTypeChip('MCC', 'mcc'),
               ],
             ),
           ),
@@ -559,8 +561,12 @@ class _CommonContractsScreenState extends State<CommonContractsScreen>
   }
 
   Widget _typeBadge(String type) {
-    final display = type == 'station_cleaning' ? 'Station Cleaning' : 'OBHS';
-    final color = type == 'station_cleaning' ? Colors.teal : Colors.indigo;
+    final display = type == 'station_cleaning'
+        ? 'Station Cleaning'
+        : (type == 'obhs' ? 'OBHS' : 'MCC');
+    final color = type == 'station_cleaning'
+        ? Colors.teal
+        : (type == 'obhs' ? Colors.indigo : Colors.deepPurple);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(

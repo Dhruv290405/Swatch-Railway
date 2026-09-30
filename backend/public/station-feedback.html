@@ -993,10 +993,10 @@
       let stationCode = params.get('code') || params.get('stationCode') || params.get('station_code') || '';
       const API = window.location.origin;
 
-      let verifyToken = '';
+      let verifyToken = sessionStorage.getItem('fbToken') || '';
+      let verifyingPhone = verifyToken ? (sessionStorage.getItem('fbPhone') || '') : '';
       let selectedCat = '';
       let selectedRating = 0;
-      let verifyingPhone = '';
       let uploadedBase64 = '';
       let timerInterval = null;
       let submittedUid = '';
@@ -1084,7 +1084,6 @@
           const json = await res.json();
           if (!res.ok) {
             showErr(json.error || json.message || 'Could not send OTP.');
-            setBusy(false);
             return;
           }
           verifyingPhone = p;
@@ -1100,8 +1099,9 @@
           verifyingPhone = p;
           goTo(2, stepOtp);
           startTimer();
+        } finally {
+          setBusy(false);
         }
-        setBusy(false);
       }
 
       /* OTP Resend Timer */
@@ -1136,18 +1136,20 @@
           const json = await res.json();
           if (!res.ok || !json.token) {
             showErr(json.error || 'Invalid OTP. Please check and try again.');
-            setBusy(false);
             return;
           }
           verifyToken = json.token;
+          sessionStorage.setItem('fbToken', verifyToken);
+          sessionStorage.setItem('fbPhone', verifyingPhone);
           clearMsg();
           buildCats();
           buildStars();
           goTo(3, stepForm);
         } catch (e) {
           showErr('Network error. Please try again.');
+        } finally {
+          setBusy(false);
         }
-        setBusy(false);
       }
 
       /* ─── Step 3: Build Categories Grid ─── */
@@ -1288,7 +1290,6 @@
           const json = await res.json();
           if (!res.ok) {
             showErr(json.error || 'Could not submit feedback.');
-            setBusy(false);
             return;
           }
 
@@ -1304,8 +1305,9 @@
           goTo(4, stepDone);
         } catch (e) {
           showErr('Network error. Please try again.');
+        } finally {
+          setBusy(false);
         }
-        setBusy(false);
       }
 
       /* ─── Language Toggle ─── */
@@ -1334,7 +1336,22 @@
         }
       });
       $('btnSubmit').addEventListener('click', submitFeedback);
-      $('btnReload').addEventListener('click', () => location.reload());
+
+      /* ─── Step 4: Submit Another Feedback (keeps verified session, no re-OTP) ─── */
+      function resetToForm() {
+        selectedCat = '';
+        selectedRating = 0;
+        uploadedBase64 = '';
+        $('selArea').selectedIndex = 0;
+        $('comments').value = '';
+        $('fileInput').value = '';
+        $('previewContainer').classList.add('hide');
+        clearMsg();
+        buildCats();
+        buildStars();
+        goTo(3, stepForm);
+      }
+      $('btnReload').addEventListener('click', resetToForm);
 
       $('btnCopyReceipt').addEventListener('click', () => {
         const text = `Swachh Railways Feedback Receipt\nRef ID: ${$('rvId').textContent}\nStation: ${$('rvStation').textContent}\nCategory: ${$('rvCat').textContent}\nRating: ${$('rvRating').textContent}\nStatus: ${I18N[currentLang].rvStatusVal}`;
@@ -1349,6 +1366,13 @@
       /* Enter key listeners */
       $('phone').addEventListener('keyup', (e) => { if (e.key === 'Enter') sendOtp(); });
       $('otp').addEventListener('keyup', (e) => { if (e.key === 'Enter') verifyOtp(); });
+
+      /* ─── Auto-restore verified session (skip phone/OTP on reload) ─── */
+      if (verifyToken && verifyingPhone) {
+        buildCats();
+        buildStars();
+        goTo(3, stepForm);
+      }
 
     })();
   </script>

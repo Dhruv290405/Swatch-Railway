@@ -21,6 +21,7 @@ import premisesFormsRoutes from './routes/premisesForms.js';
 import ctsFormsRoutes from './routes/ctsForms.js';
 import stationRoutes from './routes/station.js';
 import obhsRoutes from './routes/obhs.js';
+import mccRoutes from './routes/mcc.js';
 import mediaRoutes from './routes/media.js';
 import reportsRoutes from './routes/reports.js';
 import dashboardRoutes from './routes/dashboard.js';
@@ -129,6 +130,7 @@ app.use(entitiesRoutes);                          // /api/contractors/* /api/mas
 app.use(contractsRoutes);                         // /api/contracts/*
 app.use(trainsRoutes);                            // /api/trains/*
 app.use(obhsRoutes);                              // /api/obhs/* /api/verifyFace /api/compareFace
+app.use(mccRoutes);                               // /api/mcc/* (MCC washing plant / depot module)
 app.use(reportsRoutes);                           // /api/reports/*
 app.use(stationFeedbackRoutes);                   // /api/station-feedback/*
 app.use(passengerFeedbackRoutes);                 // /api/passenger-feedback/* (PNR feedback)

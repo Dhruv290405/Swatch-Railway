@@ -407,7 +407,7 @@ class _StationCleaningHubScreenState extends State<StationCleaningHubScreen> {
             ),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.list_alt, color: Colors.white)),
-              title: const Text('View PNR Feedback'),
+              title: const Text('View Feedback'),
               subtitle: const Text('Browse feedback recorded against PNRs'),
               onTap: () {
                 Navigator.pop(ctx);

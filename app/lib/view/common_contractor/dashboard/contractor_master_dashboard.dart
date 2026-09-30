@@ -2417,7 +2417,7 @@ class _PassengerFeedbackChooser extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.list_alt, color: Colors.white)),
-            title: const Text('View PNR Feedback'),
+            title: const Text('View Feedback'),
             subtitle: const Text('Browse feedback recorded against PNRs'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PassengerFeedbackListScreen(

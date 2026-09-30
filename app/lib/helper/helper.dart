@@ -4,6 +4,7 @@ import 'package:crm_train/model/user_model.dart';
 import '../view/common_railways/main_nav_screen.dart';
 import '../view/common_workers/worker_mobile_nav_bar.dart';
 import '../view/obhs_screens/mcc/obhs_mcc_router.dart';
+import '../view/mcc/mcc_router.dart';
 
 void navigateUser(BuildContext context, UserModel user) {
   // Normalize the role the same way ObhsMccRouter does, so casing and spacing
@@ -22,7 +23,14 @@ void navigateUser(BuildContext context, UserModel user) {
 
   const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
 
-  if (mccRoles.contains(role)) {
+  if (user.contractType == 'mcc') {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MccRouter(user: user),
+      ),
+    );
+  } else if (mccRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

@@ -32,13 +32,14 @@ class ContractService {
     // Determine assignment: Station Cleaning = stations from division; OBHS = trains from request
     const isStationCleaning = contractType === 'station_cleaning';
     const isOBHS = contractType === 'obhs';
+    const isMCC = contractType === 'mcc';
     const stationNames = [];
     let stationIds = [];
     let trainIds = [];
     let trainNames = [];
     let effectiveZone = zone || '';
 
-    if (isStationCleaning) {
+    if (isStationCleaning || isMCC) {
       if (reqStationIds && reqStationIds.length > 0) {
         for (const sid of reqStationIds) {
           const snap = await db.collection('stations').doc(sid).get();
@@ -165,7 +166,7 @@ class ContractService {
     });
 
     // Auto-create station-contractor mappings for station cleaning so contractor admin users see these stations
-    if (isStationCleaning && stationIds.length > 0) {
+    if ((isStationCleaning || isMCC) && stationIds.length > 0) {
       const batch = db.batch();
       for (const sid of stationIds) {
         const mappingRef = db.collection('stationContractorMappings').doc();

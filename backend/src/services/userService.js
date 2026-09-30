@@ -154,14 +154,14 @@ class UserService {
         const contractDoc = await db.collection('contracts').doc(contractId).get();
         if (contractDoc.exists) {
           const contractData = contractDoc.data();
-          if (contractData.contractType === 'station_cleaning' || contractData.contractType === 'obhs') {
+          if (contractData.contractType === 'station_cleaning' || contractData.contractType === 'obhs' || contractData.contractType === 'mcc') {
             domain = contractData.contractType;
           }
         }
       }
       
       // If we still don't have a domain, but the creator specifies it or it can be derived, ensure it matches
-      if (domain && !['station_cleaning', 'obhs'].includes(domain)) {
+      if (domain && !['station_cleaning', 'obhs', 'mcc'].includes(domain)) {
         domain = null;
       }
     }
@@ -340,7 +340,7 @@ class UserService {
         .limit(1).get();
       if (!contractSnapshot.empty) {
         const firstContract = contractSnapshot.docs[0].data();
-        if (firstContract.contractType === 'station_cleaning' || firstContract.contractType === 'obhs') {
+        if (firstContract.contractType === 'station_cleaning' || firstContract.contractType === 'obhs' || firstContract.contractType === 'mcc') {
           updateData.domain = firstContract.contractType;
         }
       }
