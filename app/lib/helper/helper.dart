@@ -6,21 +6,30 @@ import '../view/common_workers/worker_mobile_nav_bar.dart';
 import '../view/obhs_screens/mcc/obhs_mcc_router.dart';
 
 void navigateUser(BuildContext context, UserModel user) {
-  final mccRoles = [
-    'CTS',
-    'Janitor', 'JANITOR',
-    'Attendant', 'ATTENDANT',
-    'Worker', 'WORKER'
-  ];
+  // Normalize the role the same way ObhsMccRouter does, so casing and spacing
+  // in the stored role ("Janitor", "contractor master", ...) never matter.
+  final role = user.role.toUpperCase().replaceAll(' ', '_');
 
-  if (mccRoles.contains(user.role)) {
+  const mccRoles = {
+    'CTS',
+    'CM', 'COMPANY_MASTER', 'CONTRACTOR_MASTER',
+    'CA', 'CONTRACTOR_ADMIN',
+    'CS', 'CONTRACTOR_SUPERVISOR',
+    'JANITOR',
+    'ATTENDANT',
+    'WORKER',
+  };
+
+  const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
+
+  if (mccRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => ObhsMccRouter(user: user),
       ),
     );
-  } else if (user.role == 'Railway Worker' || user.role == 'RAILWAY_WORKER') {
+  } else if (railwayWorkerRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -36,4 +45,3 @@ void navigateUser(BuildContext context, UserModel user) {
     );
   }
 }
-

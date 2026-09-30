@@ -43,6 +43,14 @@ import '../../station_cleaning/reporting/report_list_screen.dart';
 import '../station_management/area_performance_dashboard.dart';
 import '../station_management/supervisor_shift_assignment_screen.dart';
 import 'package:crm_train/view/common_railways/forms/common_form_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_runs_list_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_create_run_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_attendance_list_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_water_checks_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_safety_checks_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_petty_repairs_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_ratings_screen.dart';
+import 'package:crm_train/view/obhs_screens/obhs_analytics_screen.dart';
 
 class CommonDashboard extends StatefulWidget {
   CommonDashboard({
@@ -498,6 +506,21 @@ class _CommonDashboardState extends State<CommonDashboard> {
         ]
       },
       {
+        "icon": Icons.train,
+        "title": "OBHS Operations",
+        "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor"],
+        "children": [
+          {"title": "OBHS Runs", "route": "obhs_runs"},
+          {"title": "Create OBHS Run", "route": "obhs_create_run"},
+          {"title": "OBHS Attendance", "route": "obhs_attendance"},
+          {"title": "Water Checks", "route": "obhs_water"},
+          {"title": "Safety Checks", "route": "obhs_safety"},
+          {"title": "Petty Repairs", "route": "obhs_repairs"},
+          {"title": "Ratings", "route": "obhs_ratings"},
+          {"title": "Analytics", "route": "obhs_analytics"},
+        ]
+      },
+      {
         "icon": Icons.analytics,
         "title": "Reports",
         "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor"],
@@ -655,6 +678,30 @@ class _CommonDashboardState extends State<CommonDashboard> {
       case "audit_logs":
       case "activity_logs":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const AuditLogScreen()));
+        break;
+      case "obhs_runs":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const OBHSRunsListScreen()));
+        break;
+      case "obhs_create_run":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const OBHSCreateInstanceScreen()));
+        break;
+      case "obhs_attendance":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const OBHSAttendanceListScreen()));
+        break;
+      case "obhs_water":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObhsWaterChecksScreen()));
+        break;
+      case "obhs_safety":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObhsSafetyChecksScreen()));
+        break;
+      case "obhs_repairs":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObhsPettyRepairsScreen()));
+        break;
+      case "obhs_ratings":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObhsRatingsScreen()));
+        break;
+      case "obhs_analytics":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObhsAnalyticsScreen()));
         break;
       case "sc_main":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const StationCleaningMainScreen()));

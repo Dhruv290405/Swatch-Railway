@@ -31,6 +31,7 @@ class ObhsMccRouter extends StatelessWidget {
       case 'CONTRACTOR_SUPERVISOR':
         return CsFieldExecutionScreen(user: user);
       case 'JANITOR':
+      case 'WORKER':
         return JanitorHomeScreen(user: user);
       case 'ATTENDANT':
         return AttendantHomeScreen(user: user);
