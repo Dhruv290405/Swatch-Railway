@@ -77,6 +77,8 @@ class _TaskGenerationScreenState extends State<TaskGenerationScreen> {
   // creates a task at exactly each chosen time (each tagged to its own shift /
   // supervisor) instead of deriving slots from the area's frequency.
   final Map<String, List<String>> _areaCustomTimes = {};
+  // Working selection while the add-time sheet is open (committed on save).
+  final Set<String> _pendingCustomTimes = {};
 
   // Selected station's recorded supervisor shifts (shift -> supervisor name),
   // used by the per-slot preview to show WHO will get each task. Mirrors the
@@ -476,25 +478,254 @@ int _defaultFrequencyForArea(StationArea area) {
     return (used > 0 ? used : 1).clamp(1, def);
   }
 
-  Future<void> _addTimeSlotFor(StationArea area) async {
+  // Quick-select preset slot times grouped by the shift they fall into, so the
+  // admin can pick a task time at a glance (mirrors the backend shift windows).
+  static const Map<String, List<String>> _quickTimeSlots = {
+    'morning': ['06:00', '06:30', '07:00', '08:00', '09:00', '09:30', '10:00', '11:00'],
+    'evening': ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'],
+    'night': ['20:00', '21:00', '22:00', '23:00'],
+  };
+
+  Color _shiftColor(String shift) {
+    switch (shift) {
+      case 'morning':
+        return const Color(0xFFF9A825); // sunrise amber
+      case 'evening':
+        return const Color(0xFFE64A19); // sunset deep orange
+      default:
+        return const Color(0xFF5E35B1); // night indigo
+    }
+  }
+
+  IconData _shiftIcon(String shift) {
+    switch (shift) {
+      case 'morning':
+        return Icons.wb_sunny_outlined;
+      case 'evening':
+        return Icons.wb_twilight;
+      default:
+        return Icons.nights_stay_outlined;
+    }
+  }
+
+  // Attractive "Add Task Time" sheet: shift-grouped quick slots + custom dial.
+  Future<void> _openAddTimeSheet(StationArea area) async {
     final areaId = area.uid ?? area.name;
-    final picked = await showTimePicker(
+    final existing = Set<String>.of(_areaCustomTimes[areaId] ?? const []);
+    _pendingCustomTimes
+      ..clear()
+      ..addAll(existing);
+    final edge = MediaQuery.of(context).viewInsets.bottom;
+
+    await showModalBottomSheet<void>(
       context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
-      helpText: 'Task time for ${area.name}',
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final pending = _pendingCustomTimes;
+          final additions = pending.difference(existing).length;
+
+          Future<void> pickCustomTime() async {
+            final picked = await showTimePicker(
+              context: sheetCtx,
+              initialTime: const TimeOfDay(hour: 9, minute: 0),
+              helpText: 'Custom task time for ${area.name}',
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                child: child!,
+              ),
+            );
+            if (picked == null) return;
+            final time =
+                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+            setSheetState(() => pending.add(time));
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + edge),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: kRailwayBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.schedule, color: kRailwayBlue, size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Add Task Time',
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                            Text(area.name,
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(sheetCtx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Pick the exact time your task should run. Each time is tagged to its own shift and its shift supervisor.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.35),
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final shift in const ['morning', 'evening', 'night']) ...[
+                            Row(
+                              children: [
+                                Icon(_shiftIcon(shift), size: 15, color: _shiftColor(shift)),
+                                const SizedBox(width: 6),
+                                Text('${shift[0].toUpperCase()}${shift.substring(1)} Shift',
+                                    style: const TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final t in _quickTimeSlots[shift]!)
+                                  _quickTimePill(
+                                    time: t,
+                                    color: _shiftColor(shift),
+                                    selected: pending.contains(t),
+                                    onTap: () => setSheetState(() {
+                                      if (pending.contains(t)) {
+                                        pending.remove(t);
+                                      } else {
+                                        pending.add(t);
+                                      }
+                                    }),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: pickCustomTime,
+                          icon: const Icon(Icons.schedule, size: 18),
+                          label: const Text('Custom time'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            side: BorderSide(color: kRailwayBlue.withOpacity(0.5)),
+                            foregroundColor: kRailwayBlue,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton.icon(
+                          onPressed: additions == 0 && pending.isEmpty
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _areaCustomTimes[areaId] = pending.toList()..sort();
+                                  });
+                                  Navigator.pop(sheetCtx);
+                                },
+                          icon: const Icon(Icons.check_circle, size: 18),
+                          label: Text(additions > 0
+                              ? 'Add $additions time${additions == 1 ? '' : 's'}'
+                              : (pending.isEmpty ? 'Add time' : 'Done')),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kRailwayBlue,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 44),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
-    if (picked == null) return;
-    final time = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-    setState(() {
-      final list = _areaCustomTimes.putIfAbsent(areaId, () => []);
-      if (!list.contains(time)) list.add(time);
-    });
+  }
+
+  // A compact selectable pill used inside the add-time sheet.
+  Widget _quickTimePill({
+    required String time,
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: selected ? color : color.withOpacity(0.08),
+          border: Border.all(
+            color: selected ? color : color.withOpacity(0.45),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(time,
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: selected ? Colors.white : color)),
+            if (selected) ...[
+              const SizedBox(width: 5),
+              const Icon(Icons.check_circle, size: 14, color: Colors.white),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   // "HH:MM · Shift · Supervisor" per-slot preview of who gets each task.
@@ -552,66 +783,142 @@ int _defaultFrequencyForArea(StationArea area) {
     final custom = _areaCustomTimes[areaId] ?? const <String>[];
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(top: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: kRailwayBlue.withOpacity(0.4)),
-        borderRadius: BorderRadius.circular(8),
-        color: kRailwayBlue.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kRailwayBlue.withOpacity(0.35)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kRailwayBlue.withOpacity(0.05), Colors.white],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.access_time, size: 16, color: kRailwayBlue),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Task Times',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              gradient: LinearGradient(colors: [kRailwayBlue, kRailwayBlue.withOpacity(0.75)]),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.access_time, size: 16, color: Colors.white),
                 ),
-              ),
-              TextButton.icon(
-                onPressed: () => _addTimeSlotFor(area),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add Time'),
-                style: TextButton.styleFrom(
-                  foregroundColor: kRailwayBlue,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  visualDensity: VisualDensity.compact,
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Task Times',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
                 ),
-              ),
-            ],
+                FilledButton.tonalIcon(
+                  onPressed: () => _openAddTimeSheet(area),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add Time'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: kRailwayBlue,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
           ),
-          if (custom.isEmpty)
-            Text(
-              'No exact times set \u2014 tasks use the area frequency below. Tap "Add Time" to create a task at a specific hour (each sorted under its own shift and supervisor).',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
-            )
-          else ...[
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: List.generate(custom.length, (i) {
-                final t = custom[i];
-                return InputChip(
-                  label: Text(t),
-                  deleteIcon: const Icon(Icons.close, size: 14),
-                  onDeleted: () => setState(() => _areaCustomTimes[areaId]!.removeAt(i)),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: kRailwayBlue.withOpacity(0.08),
-                  side: BorderSide(color: kRailwayBlue.withOpacity(0.3)),
-                );
-              }),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (custom.isEmpty)
+                  Text(
+                    'No exact times set \u2014 tasks use the area frequency below. Tap "Add Time" to pick hours (each runs in its own shift, under its shift supervisor).',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                      height: 1.35,
+                    ),
+                  )
+                else ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(custom.length, (i) {
+                      final t = custom[i];
+                      final shift = _shiftLabelForTime(t).toLowerCase();
+                      final color = _shiftColor(shift);
+                      return Container(
+                        padding: const EdgeInsets.only(left: 5, right: 2, top: 4, bottom: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          color: color.withOpacity(0.09),
+                          border: Border.all(color: color.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                              alignment: Alignment.center,
+                              child: Icon(_shiftIcon(shift), size: 13, color: Colors.white),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(t,
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w800, color: Colors.black87)),
+                            const SizedBox(width: 4),
+                            Text(_shiftLabelForTime(t),
+                                style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                            InkWell(
+                              onTap: () => setState(() => _areaCustomTimes[areaId]!.removeAt(i)),
+                              borderRadius: BorderRadius.circular(10),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.close, size: 15, color: Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: kSuccessGreen.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.task_alt, size: 14, color: kSuccessGreen),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${custom.length} exact time${custom.length == 1 ? '' : 's'} selected for this area',
+                          style: const TextStyle(
+                              fontSize: 11, color: kSuccessGreen, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                _buildSlotAssignmentPreview(area),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Exact times enabled: ${custom.length} task(s) will be created at the chosen hours for this area.',
-              style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600),
-            ),
-          ],
-          _buildSlotAssignmentPreview(area),
+          ),
         ],
       ),
     );

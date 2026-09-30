@@ -1302,7 +1302,40 @@ class TaskManagementService {
       //   - more tasks exist  -> cancel the extras (prefer ones outside the slot list)
       //   - fewer             -> create the missing occurrences at the next free slots
       let timesToUse = [];
-      if (normalizeDesired != null) {
+      if (useCustomTimes && normalizeDesired != null) {
+        // EXACT-TIME mode: the picked HH:MM slots are authoritative and
+        // ADDITIVE. A chosen time that already has an active task is never
+        // duplicated (the existing slot wins); the run instead creates only the
+        // chosen times that are still missing, each assigned to the supervisor
+        // of the shift its time falls in. Tasks outside the picked set are left
+        // untouched so an admin can add a specific-time / extra task without
+        // wiping the day's other scheduled work.
+        const areaTasks = tasksByArea.get(areaId) || [];
+        const slotSet = new Set(frequencyTimes);
+        const dupTimes = new Set();
+        for (const t of areaTasks) {
+          if (!slotSet.has(t.scheduledTime)) continue;
+          if (dupTimes.has(t.scheduledTime)) {
+            batch.update(db.collection('cleaningTasks').doc(t.id), {
+              status: 'cancelled',
+              // Marks the slot as deliberately closed by a manual override so the
+              // auto (cron/schedule) generator does not recreate the task at this
+              // time later in the day (see generateTasksFromSchedule).
+              manualOverride: true,
+              updatedAt: new Date().toISOString(),
+            });
+            batchCount++;
+            batchCancelled++;
+            continue;
+          }
+          dupTimes.add(t.scheduledTime);
+        }
+        timesToUse = frequencyTimes.filter(t => !dupTimes.has(t));
+      } else if (normalizeDesired != null) {
+        // NORMALIZE-by-count mode: reconcile today's active tasks for this area
+        // to EXACTLY the requested count:
+        //   - more tasks exist  -> cancel the extras (prefer ones outside the slot list)
+        //   - fewer             -> create the missing occurrences at the next free slots
         const areaTasks = tasksByArea.get(areaId) || [];
         const activeCount = areaTasks.length;
         if (activeCount > normalizeDesired) {
