@@ -83,6 +83,9 @@ class RepairRepository {
           },
           body: jsonEncode({
             ...repair.toJson(),
+            // The backend keys updates off `repairId`; without this every edit
+            // would be treated as a new inspection.
+            'repairId': repair.id.isNotEmpty ? repair.id : null,
             'deviceTimestamp': DateTime.now().toUtc().toIso8601String(),
           }),
         ),

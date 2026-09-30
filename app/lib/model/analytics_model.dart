@@ -1,3 +1,7 @@
+/// Firestore returns numeric fields as int or double depending on how they
+/// were written, so coerce instead of casting.
+int _asInt(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+
 class JanitorPerformanceModel {
   final String workerId;
   final String workerName;
@@ -23,9 +27,9 @@ class JanitorPerformanceModel {
     return JanitorPerformanceModel(
       workerId: json['workerId'] as String? ?? '',
       workerName: json['workerName'] as String? ?? '',
-      tasksCompleted: json['tasksCompleted'] as int? ?? 0,
-      tasksMissed: json['tasksMissed'] as int? ?? 0,
-      tasksOverdue: json['tasksOverdue'] as int? ?? 0,
+      tasksCompleted: _asInt(json['tasksCompleted']),
+      tasksMissed: _asInt(json['tasksMissed']),
+      tasksOverdue: _asInt(json['tasksOverdue']),
       averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0.0,
       completionPercentage:
           (json['completionPercentage'] as num?)?.toDouble() ?? 0.0,
@@ -57,10 +61,10 @@ class CoachCleanlinessModel {
       coachNo: json['coachNo'] as String? ?? '',
       cleanlinessScore:
           (json['cleanlinessScore'] as num?)?.toDouble() ?? 0.0,
-      toiletCompletions: json['toiletCompletions'] as int? ?? 0,
-      totalToiletTasks: json['totalToiletTasks'] as int? ?? 0,
-      waterIssues: json['waterIssues'] as int? ?? 0,
-      garbageIssues: json['garbageIssues'] as int? ?? 0,
+      toiletCompletions: _asInt(json['toiletCompletions']),
+      totalToiletTasks: _asInt(json['totalToiletTasks']),
+      waterIssues: _asInt(json['waterIssues']),
+      garbageIssues: _asInt(json['garbageIssues']),
     );
   }
 }

@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../model/user_model.dart';
 import '../model/worker_profile_model.dart';
 import '../repositories/worker_repo.dart';
-import '../services/firebase_obhs_service.dart';
 
 class WorkerController extends GetxController {
   final isLoading = false.obs;
@@ -849,19 +848,6 @@ class WorkerController extends GetxController {
         await _saveAttendanceState(type);
         await refreshAttendanceStatus();
 
-        // ── Mirror to Firestore for report generation ────────────────────
-        FirebaseOBHSService.saveAttendance({
-          'runInstanceId': runInstanceId,
-          'workerId': workerProfile.value?.uid ?? '',
-          'workerName': workerProfile.value?.fullName ?? '',
-          'type': type,
-          'attendanceType': type,
-          'attendanceTime': DateTime.now().toIso8601String(),
-          'deviceTimestamp': DateTime.now().toIso8601String(),
-          'gpsLocation': '${position.latitude}, ${position.longitude}',
-          'photoUrl': imageUrl,
-          'syncStatus': 'Synced',
-        });
 
         Get.snackbar(
           isAlreadySubmitted ? 'Already Submitted' : 'Success',

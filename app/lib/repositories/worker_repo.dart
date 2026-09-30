@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:crm_train/services/firebase_obhs_service.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -496,21 +495,6 @@ class WorkerRepository {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final result = jsonDecode(response.body) as Map<String, dynamic>;
-        // ── Mirror to Firestore ────────────────────────────────────────────
-        FirebaseOBHSService.saveTask({
-          'runInstanceId': runInstanceId,
-          'taskCategory': taskType,
-          'taskTitle': taskType,
-          'coachNo': coachNo,
-          'frequencyIndex': frequencyIndex,
-          'beforePhotoUrl': beforePhoto,
-          'afterPhotoUrl': afterPhoto,
-          'comment': comment,
-          'completionTime': DateTime.now().toIso8601String(),
-          'deviceTimestamp': DateTime.now().toUtc().toIso8601String(),
-          'status': 'Completed',
-          'taskId': 'TSK-${DateTime.now().millisecondsSinceEpoch}',
-        });
         return result;
       } else if (response.statusCode == 401) {
         throw Exception('AUTH_ERROR');
@@ -566,18 +550,6 @@ class WorkerRepository {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final result = jsonDecode(response.body) as Map<String, dynamic>;
-        // ── Mirror to Firestore ────────────────────────────────────────────
-        FirebaseOBHSService.saveComplaint({
-          'runInstanceId': runInstanceId,
-          'coachNo': coachNo,
-          'category': category,
-          'description': description,
-          'photoUrl': photoUrl,
-          'status': 'IN PROGRESS',
-          'priority': 'NORMAL',
-          'createdAt': DateTime.now().toIso8601String(),
-          'complaintId': 'CMP-${DateTime.now().millisecondsSinceEpoch}',
-        });
         return result;
       } else if (response.statusCode == 401) {
         throw Exception('AUTH_ERROR');

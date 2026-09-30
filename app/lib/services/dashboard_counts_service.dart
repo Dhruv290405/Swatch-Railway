@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_obhs_service.dart';
+import '../repositories/obhs_repository.dart';
 
 class FirebaseCountService {
 
@@ -641,12 +641,85 @@ class FirebaseCountService {
   }
 
   /// OBHS – summary stats for the Reports > OBHS tab.
-  /// Reads from the `obhsRunInstances` Firestore collection.
+  /// Reads run instances from the OBHS API (authoritative `RunInstance`
+  /// collection) and derives task counts from each run's task details.
   static Future<Map<String, dynamic>> getOBHSStats({
     String? zone,
     String? division,
   }) async {
-    return FirebaseOBHSService.getOBHSStats(zone: zone, division: division);
+    final empty = <String, dynamic>{
+      'totalTrains': 0, 'totalInstances': 0, 'activeInstances': 0,
+      'pendingInstances': 0, 'closedInstances': 0, 'completedInstances': 0,
+      'totalCoaches': 0, 'coachesWithWorkers': 0, 'coachesWithoutWorkers': 0,
+      'totalWorkersAssigned': 0, 'jobsCompleted': 0,
+    };
+    try {
+      final runs = await OBHSRepository.getAllRunInstances();
+      if (runs.isEmpty) return empty;
+
+      final uniqueTrains = <String>{};
+      int active = 0, pending = 0, closed = 0, completed = 0;
+      int totalCoaches = 0, coachesWithWorkers = 0, workersAssigned = 0, jobsCompleted = 0;
+
+      for (final run in runs) {
+        if ((run.trainNo ?? '').isNotEmpty) uniqueTrains.add(run.trainNo!);
+        switch (run.status.toLowerCase()) {
+          case 'active':
+          case 'ready':
+          case 'running':
+            active++;
+            break;
+          case 'pending':
+          case 'allocated':
+            pending++;
+            break;
+          case 'closed':
+            closed++;
+            break;
+          case 'completed':
+            completed++;
+            break;
+        }
+        for (final c in run.coaches) {
+          totalCoaches++;
+          final hasWorker = (c.janitorId ?? '').isNotEmpty ||
+              (c.attendantId ?? '').isNotEmpty;
+          if (hasWorker) {
+            coachesWithWorkers++;
+            if ((c.janitorId ?? '').isNotEmpty) workersAssigned++;
+            if ((c.attendantId ?? '').isNotEmpty) workersAssigned++;
+          }
+        }
+        final runId = run.runInstanceId ?? run.id;
+        if (runId != null && runId.isNotEmpty) {
+          try {
+            final tasks = await OBHSRepository.getRunTasks(runId);
+            jobsCompleted += tasks
+                .where((t) => (t['status'] ?? '').toString().toLowerCase() == 'completed')
+                .length;
+          } catch (_) {
+            // A single unreadable run must not blank the whole dashboard.
+          }
+        }
+      }
+
+      return <String, dynamic>{
+        'totalTrains': uniqueTrains.length,
+        'totalInstances': runs.length,
+        'activeInstances': active,
+        'pendingInstances': pending,
+        'closedInstances': closed,
+        'completedInstances': completed,
+        'totalCoaches': totalCoaches,
+        'coachesWithWorkers': coachesWithWorkers,
+        'coachesWithoutWorkers': totalCoaches - coachesWithWorkers,
+        'totalWorkersAssigned': workersAssigned,
+        'jobsCompleted': jobsCompleted,
+      };
+    } catch (e) {
+      print('[FirebaseCountService] getOBHSStats error: $e');
+      return empty;
+    }
   }
 
   static Future<Map<String, dynamic>> getFormStatusCounts({

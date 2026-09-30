@@ -49,7 +49,8 @@ class AnalyticsRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final list = (data['data'] as List<dynamic>?)
+        // The API returns its list under "performance".
+        final list = (data['performance'] as List<dynamic>?)
                 ?.map((item) => JanitorPerformanceModel.fromJson(item as Map<String, dynamic>))
                 .toList() ??
             [];
@@ -87,7 +88,8 @@ class AnalyticsRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final list = (data['data'] as List<dynamic>?)
+        // The API returns its list under "coaches".
+        final list = (data['coaches'] as List<dynamic>?)
                 ?.map((item) => CoachCleanlinessModel.fromJson(item as Map<String, dynamic>))
                 .toList() ??
             [];

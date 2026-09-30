@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/services/dashboard_counts_service.dart';
-import 'package:crm_train/services/firebase_obhs_service.dart';
+import 'package:crm_train/repositories/obhs_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -2878,14 +2878,23 @@ class _CommonReportScreenState extends State<CommonReportScreen>
     setState(() => isLoading = true);
 
     try {
-      // ── Fetch run instances from Firebase ─────────────────────────────────
-      final runInstances = await FirebaseOBHSService.getRunInstances(
-        trainNo: selectedOBHSTrain,
-        status: null, // all statuses
-        departureDate: selectedDepartureDate,
-        startDate: startDate,
-        endDate: endDate,
-      );
+      // ── Fetch run instances from the OBHS API (authoritative) ────────────
+      final allRuns = await OBHSRepository.getAllRunInstances();
+      final runInstances = allRuns
+          .where((r) =>
+              (selectedOBHSTrain == null || selectedOBHSTrain!.isEmpty || r.trainNo == selectedOBHSTrain))
+          .map((r) => <String, dynamic>{
+                'id': r.runInstanceId ?? r.id ?? '',
+                'runInstanceId': r.runInstanceId ?? r.id ?? '',
+                'instanceId': r.instanceId,
+                'trainNo': r.trainNo,
+                'trainName': r.trainName,
+                'status': r.status,
+                'departureDate': r.departureDate?.toIso8601String(),
+                'coaches': r.coaches.map((c) => c.toJson()).toList(),
+                'createdBy': r.createdBy,
+              })
+          .toList();
 
       if (runInstances.isEmpty) {
         setState(() {
@@ -3060,7 +3069,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
           for (final run in runs) {
             final runId = run['runInstanceId']?.toString() ?? run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              allAttendance.addAll(await FirebaseOBHSService.getAttendanceForRun(runId));
+              allAttendance.addAll(await OBHSRepository.getAttendanceList(runInstanceId: runId));
             }
           }
           pdfBytes = await PDFReportService.generateAttendanceReportPdf(runs, allAttendance);
@@ -3070,7 +3079,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
           for (final run in runs) {
             final runId = run['runInstanceId']?.toString() ?? run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              allTasks.addAll(await FirebaseOBHSService.getTasksForRun(runId));
+              allTasks.addAll(await OBHSRepository.getRunTasks(runId));
             }
           }
           pdfBytes = await PDFReportService.generateWorkerActivityReportPdf(runs, allTasks);
@@ -3080,7 +3089,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
           for (final run in runs) {
             final runId = run['runInstanceId']?.toString() ?? run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              allComplaints.addAll(await FirebaseOBHSService.getComplaintsForRun(runId));
+              allComplaints.addAll(await OBHSRepository.getRunComplaints(runId));
             }
           }
           pdfBytes = await PDFReportService.generateComplaintReportPdf(runs, allComplaints);
@@ -3130,7 +3139,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
             final runId = run['runInstanceId']?.toString() ??
                 run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              final att = await FirebaseOBHSService.getAttendanceForRun(runId);
+              final att = await OBHSRepository.getAttendanceList(runInstanceId: runId);
               allAttendance.addAll(att);
             }
           }
@@ -3144,7 +3153,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
             final runId = run['runInstanceId']?.toString() ??
                 run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              final tasks = await FirebaseOBHSService.getTasksForRun(runId);
+              final tasks = await OBHSRepository.getRunTasks(runId);
               allTasks.addAll(tasks);
             }
           }
@@ -3158,7 +3167,7 @@ class _CommonReportScreenState extends State<CommonReportScreen>
             final runId = run['runInstanceId']?.toString() ??
                 run['instanceId']?.toString() ?? '';
             if (runId.isNotEmpty) {
-              final cmps = await FirebaseOBHSService.getComplaintsForRun(runId);
+              final cmps = await OBHSRepository.getRunComplaints(runId);
               allComplaints.addAll(cmps);
             }
           }

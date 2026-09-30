@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:crm_train/services/api_services.dart';
-import 'package:crm_train/services/firebase_obhs_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helper/api_error_handler.dart';
@@ -197,27 +196,6 @@ class OBHSRepository {
         final instanceData = data['data'] ?? data;
         final created = RunInstanceModel.fromJson(instanceData as Map<String, dynamic>);
 
-        // ── Mirror to Firestore so reports can query it ──────────────────────
-        FirebaseOBHSService.saveRunInstance({
-          'runInstanceId': created.runInstanceId ?? created.instanceId,
-          'instanceId': created.instanceId,
-          'trainNo': created.trainNo,
-          'trainName': created.trainName,
-          'inboundTrainNo': created.inboundTrainNo,
-          'outboundTrainNo': created.outboundTrainNo,
-          'departureDate': created.departureDate != null
-              ? '${created.departureDate!.year}-'
-                '${created.departureDate!.month.toString().padLeft(2, '0')}-'
-                '${created.departureDate!.day.toString().padLeft(2, '0')}'
-              : null,
-          'status': created.status,
-          'coaches': created.coaches.map((c) => c.toJson()).toList(),
-          'createdBy': created.createdBy,
-          'createdByName': created.createdByName,
-          'division': created.division,
-          'zone': created.zone,
-          'depot': created.depot,
-        });
         return created;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         throw Exception('AUTH_ERROR');
@@ -386,6 +364,53 @@ class OBHSRepository {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['records'] ?? []);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw Exception('AUTH_ERROR');
+      } else {
+        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+      }
+    } catch (e) {
+      if (e.toString().contains('AUTH_ERROR')) rethrow;
+      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+    }
+  }
+
+  /// All task details generated for a run (used by reports + review queue).
+  static Future<List<Map<String, dynamic>>> getRunTasks(String runInstanceId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) throw Exception('AUTH_ERROR');
+      final uri = Uri.parse('$baseUrl/api/obhs/tasks/run/$runInstanceId');
+      final response = await _handleRequest(
+        () => http.get(uri, headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = data is List ? data : (data['data'] ?? data['tasks'] ?? data['records'] ?? []);
+        return List<Map<String, dynamic>>.from(list as List);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw Exception('AUTH_ERROR');
+      } else {
+        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+      }
+    } catch (e) {
+      if (e.toString().contains('AUTH_ERROR')) rethrow;
+      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+    }
+  }
+
+  /// Complaints raised against a run.
+  static Future<List<Map<String, dynamic>>> getRunComplaints(String runInstanceId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) throw Exception('AUTH_ERROR');
+      final uri = Uri.parse('$baseUrl/api/obhs/complaints/run/$runInstanceId');
+      final response = await _handleRequest(
+        () => http.get(uri, headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['complaints'] ?? []);
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         throw Exception('AUTH_ERROR');
       } else {

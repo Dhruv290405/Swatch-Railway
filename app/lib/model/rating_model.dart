@@ -31,7 +31,9 @@ class RatingModel {
       employeeId: json['employeeId'] as String?,
       taskId: json['taskId'] as String?,
       source: json['source'] as String? ?? '',
-      rating: json['rating'] as int? ?? 0,
+      rating: json['rating'] is num
+          ? (json['rating'] as num).toInt()
+          : int.tryParse('${json['rating']}') ?? 0,
       journeyId: json['journeyId'] as String?,
       remarks: json['remarks'] as String?,
       createdAt: json['createdAt'] != null
