@@ -32,6 +32,7 @@ class _MainAreaSelection {
   final String? frequency;
   final int? times;
   final double? tendered;
+  final String? measurementType;
   _MainAreaSelection({
     required this.mainArea,
     required this.subArea,
@@ -39,6 +40,7 @@ class _MainAreaSelection {
     this.frequency,
     this.times,
     this.tendered,
+    this.measurementType,
   });
 }
 
@@ -112,6 +114,7 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
   final _orderCtrl = TextEditingController(text: '0');
   String _customFrequency = 'daily';
   int _customTimes = 1;
+  String _customMeasurementType = 'area';
   bool _active = true;
 
   @override
@@ -136,6 +139,7 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
           frequency: freq,
           times: times,
           tendered: tendered,
+          measurementType: e['measurementType'] as String?,
         ));
       }
       _descCtrl.text = e['description'] ?? '';
@@ -238,7 +242,8 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
     }
 
     int skipped = 0;
-    final customSqft = double.tryParse(_customSqftCtrl.text.trim());
+    final isItem = _customMeasurementType == 'item';
+    final customSqft = isItem ? 0.0 : (double.tryParse(_customSqftCtrl.text.trim()) ?? 0.0);
     setState(() {
       for (final sa in selected) {
         final key = '$mainArea||$sa';
@@ -256,16 +261,17 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
               frequency: item?.frequencyType ?? 'daily',
               times: item?.boqTimesPerPeriod ?? 1,
               tendered: item?.tenderedAreaPerDay,
+              measurementType: 'sq_ft',
             ));
           } else {
-            final sqft = customSqft ?? 0.0;
             _selections.add(_MainAreaSelection(
               mainArea: mainArea,
               subArea: sa,
-              sqft: sqft,
+              sqft: customSqft,
               frequency: _customFrequency,
               times: _customTimes,
-              tendered: _tenderedFor(sqft, _customFrequency, _customTimes),
+              tendered: _tenderedFor(customSqft, _customFrequency, _customTimes),
+              measurementType: isItem ? 'item' : (customSqft > 0 ? 'sq_ft' : 'as_available'),
             ));
           }
         }
@@ -279,6 +285,7 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
       _customFrequency = 'daily';
       _customTimes = 1;
       _customTimesCtrl.text = '1';
+      _customMeasurementType = 'area';
     });
     if (skipped > 0) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -506,7 +513,7 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
       'subArea': sel.subArea,
       'basicAreaSqFt': sqft,
       'quantity': sqft,
-      'measurementType': sqft > 0 ? 'sq_ft' : 'as_available',
+      'measurementType': sel.measurementType ?? (sqft > 0 ? 'sq_ft' : 'as_available'),
       'frequencyType': freq,
       'boqTimesPerPeriod': times,
       'tenderedAreaPerDay': sel.tendered ?? _tenderedFor(sqft, freq, times),
@@ -519,10 +526,12 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
 
   Future<void> _showEditSelection(int index) async {
     final sel = _selections[index];
+    final isItem = sel.measurementType == 'item';
     final nameCtrl = TextEditingController(text: sel.subArea);
-    final sqftCtrl = TextEditingController(text: (sel.sqft ?? 0) > 0 ? _num(sel.sqft) : '');
+    final sqftCtrl = TextEditingController(text: (sel.sqft ?? 0) > 0 && !isItem ? _num(sel.sqft) : '');
     final timesCtrl = TextEditingController(text: '${sel.times ?? _timesForFrequency(sel.frequency ?? 'daily')}');
     String frequency = sel.frequency ?? 'daily';
+    String measurementType = isItem ? 'item' : 'area';
 
     final freqOptions = [
       ..._detailFrequencyOptions,
@@ -544,12 +553,49 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
                   decoration: const InputDecoration(labelText: 'Area name', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: sqftCtrl,
-                  decoration: const InputDecoration(labelText: 'Area size (sq.ft.)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.square_foot)),
-                  keyboardType: TextInputType.number,
+                DropdownButtonFormField<String>(
+                  value: measurementType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.category),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'area', child: Text('Area (sq.ft.)')),
+                    DropdownMenuItem(value: 'item', child: Text('Item (no area size)')),
+                  ],
+                  onChanged: (v) => setSheetState(() {
+                    measurementType = v!;
+                    if (v == 'item') sqftCtrl.clear();
+                  }),
                 ),
-                const SizedBox(height: 12),
+                if (measurementType == 'item') ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: kRailwayBlue.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kRailwayBlue.withOpacity(0.2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.tips_and_updates_outlined, size: 16, color: kRailwayBlue),
+                        SizedBox(width: 6),
+                        Expanded(child: Text('No area size. This item is billed by the weightage % you assign.', style: TextStyle(fontSize: 11, color: Colors.black54))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: sqftCtrl,
+                    decoration: const InputDecoration(labelText: 'Area size (sq.ft.)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.square_foot)),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 DropdownButtonFormField<String>(
                   value: frequency,
                   decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
@@ -583,9 +629,10 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
 
     if (edited != true) return;
     final name = nameCtrl.text.trim();
-    final sqft = double.tryParse(sqftCtrl.text.trim());
+    final isItemSave = measurementType == 'item';
+    final sqft = isItemSave ? 0.0 : (double.tryParse(sqftCtrl.text.trim()) ?? sel.sqft ?? 0.0);
     final times = int.tryParse(timesCtrl.text.trim()) ?? sel.times ?? _timesForFrequency(frequency);
-    final resolvedSqft = sqft ?? sel.sqft ?? 0.0;
+    final resolvedSqft = sqft;
     setState(() {
       _selections[index] = _MainAreaSelection(
         mainArea: sel.mainArea,
@@ -594,6 +641,7 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
         frequency: frequency,
         times: times,
         tendered: _tenderedFor(resolvedSqft, frequency, times),
+        measurementType: isItemSave ? 'item' : (resolvedSqft > 0 ? 'sq_ft' : 'as_available'),
       );
     });
   }
@@ -617,11 +665,50 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _customSqftCtrl,
-              decoration: const InputDecoration(labelText: 'Area size (sq.ft.)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.square_foot)),
-              keyboardType: TextInputType.number,
+            DropdownButtonFormField<String>(
+              value: _customMeasurementType,
+              decoration: const InputDecoration(
+                labelText: 'Type',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'area', child: Text('Area (sq.ft.)')),
+                DropdownMenuItem(value: 'item', child: Text('Item (no area size)')),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _customMeasurementType = v;
+                  if (v == 'item') _customSqftCtrl.clear();
+                });
+              },
             ),
+            if (_customMeasurementType == 'item') ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: kRailwayBlue.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: kRailwayBlue.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.tips_and_updates_outlined, size: 16, color: kRailwayBlue),
+                    SizedBox(width: 6),
+                    Expanded(child: Text('No area size needed. This item is billed by the weightage % you assign in Daily Billing → Area Weightage.', style: TextStyle(fontSize: 11, color: Colors.black54))),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: _customSqftCtrl,
+                decoration: const InputDecoration(labelText: 'Area size (sq.ft.)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.square_foot)),
+                keyboardType: TextInputType.number,
+              ),
+            ],
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _customFrequency,
@@ -658,7 +745,13 @@ class _AreaFormScreenState extends State<AreaFormScreen> {
   String _rowDetail(_MainAreaSelection sel) {
     final parts = <String>[];
     final sqft = _rowSqft(sel);
-    if (sqft > 0) parts.add('${_num(sqft)} sq.ft.');
+    if (sel.measurementType == 'item' ||
+        ((sel.measurementType == null || sel.measurementType == 'as_available') &&
+            (sel.sqft ?? 0) <= 0 && sel.mainArea.isNotEmpty && !_boqGrouped.containsKey(sel.mainArea))) {
+      parts.add('Item (no size)');
+    } else if (sqft > 0) {
+      parts.add('${_num(sqft)} sq.ft.');
+    }
     final f = sel.frequency ?? _boqGrouped[sel.mainArea]?.where((i) => i.subArea == sel.subArea).firstOrNull?.frequencyType;
     final t = sel.times ?? _boqGrouped[sel.mainArea]?.where((i) => i.subArea == sel.subArea).firstOrNull?.boqTimesPerPeriod;
     if (f != null && f.isNotEmpty) parts.add('${_frequencyLabel(f)}${(t ?? 0) > 1 ? ' x$t' : ''}');

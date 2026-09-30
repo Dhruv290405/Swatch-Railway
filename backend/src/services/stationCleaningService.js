@@ -105,7 +105,7 @@ class StationCleaningService {
 
   _ALL_MEASUREMENT_TYPES = new Set([
     'sq_ft', 'sq_meter', 'running_ft', 'count', 'number', 'quantity', 'unit',
-    'as_available', 'not_applicable', 'service', 'service_based'
+    'as_available', 'not_applicable', 'service', 'service_based', 'item'
   ]);
 
   _FREQUENCY_UNITS = new Set(['day', 'week', 'fortnight', 'month', 'shift']);

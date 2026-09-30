@@ -122,6 +122,11 @@ class _AreaRateConfigScreenState extends State<AreaRateConfigScreen> {
     return 0;
   }
 
+  String _measureLabel(StationArea a) {
+    if (a.measurementType == 'item' || (a.basicAreaSqFt ?? 0) <= 0) return 'Item';
+    return '${(a.basicAreaSqFt ?? 0).round()} sq.ft.';
+  }
+
   double _dailyMoney(String uid, double weightage) {
     return (_annualContractValue * weightage / 100) / _contractDays;
   }
@@ -383,7 +388,7 @@ class _AreaRateConfigScreenState extends State<AreaRateConfigScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            _error != null ? _error! : 'No active areas with area size found for this station.',
+            _error != null ? _error! : 'No active areas found for this station.',
             style: TextStyle(fontSize: 12, color: _error != null ? kErrorRed : Colors.grey[500]),
           ),
         ),
@@ -427,7 +432,7 @@ class _AreaRateConfigScreenState extends State<AreaRateConfigScreen> {
                   Text(a.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(
-                    '${(a.basicAreaSqFt ?? 0).round()} sq.ft. • ${a.cleaningFrequency ?? a.frequencyType ?? ''}',
+                    '${_measureLabel(a)} • ${a.cleaningFrequency ?? a.frequencyType ?? ''}',
                     style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                   ),
                   const SizedBox(height: 6),

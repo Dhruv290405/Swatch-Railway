@@ -272,8 +272,9 @@ class _AreaConfigScreenState extends State<AreaConfigScreen> {
     String frequencyType = prefill?.frequencyType ?? area?['frequencyType'] as String? ?? 'daily';
     int boqTimesPerPeriod = prefill?.boqTimesPerPeriod ?? ((area?['boqTimesPerPeriod'] as num?)?.toInt() ?? 1);
     double tenderedAreaPerDay = prefill?.tenderedAreaPerDay ?? (area?['tenderedAreaPerDay'] as num?)?.toDouble() ?? 0;
+    String dialogMeasurementType = (area?['measurementType'] as String?) == 'item' ? 'item' : 'area';
 
-    final basicCtrl = TextEditingController(text: basicAreaSqFt > 0 ? basicAreaSqFt.toString() : '');
+    final basicCtrl = TextEditingController(text: basicAreaSqFt > 0 && dialogMeasurementType != 'item' ? basicAreaSqFt.toString() : '');
     final timesCtrl = TextEditingController(text: boqTimesPerPeriod.toString());
 
     bool useCustomMain = false;
@@ -430,16 +431,53 @@ class _AreaConfigScreenState extends State<AreaConfigScreen> {
                           style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic)),
                     ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: basicCtrl,
+                  DropdownButtonFormField<String>(
+                    value: dialogMeasurementType,
                     decoration: const InputDecoration(
-                      labelText: 'Basic Area (sq.ft.)',
+                      labelText: 'Type',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.square_foot),
+                      prefixIcon: Icon(Icons.category),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setDialogState(() {}),
+                    items: const [
+                      DropdownMenuItem(value: 'area', child: Text('Area (sq.ft.)')),
+                      DropdownMenuItem(value: 'item', child: Text('Item (no area size)')),
+                    ],
+                    onChanged: (v) => setDialogState(() {
+                      dialogMeasurementType = v!;
+                      if (v == 'item') basicCtrl.clear();
+                    }),
                   ),
+                  if (dialogMeasurementType == 'item') ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: kRailwayBlue.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: kRailwayBlue.withOpacity(0.2)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.tips_and_updates_outlined, size: 16, color: kRailwayBlue),
+                          SizedBox(width: 6),
+                          Expanded(child: Text('No area size. This item is billed by the weightage % you assign in Daily Billing → Area Weightage.', style: TextStyle(fontSize: 11, color: Colors.black54))),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: basicCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Basic Area (sq.ft.)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.square_foot),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: frequencyType,
@@ -509,7 +547,8 @@ class _AreaConfigScreenState extends State<AreaConfigScreen> {
                     'stationId': widget.stationId,
                     'platformId': dialogPlatform?.uid,
                     'mainArea': mainArea,
-                    'basicAreaSqFt': double.tryParse(basicCtrl.text) ?? 0,
+                    'measurementType': dialogMeasurementType == 'item' ? 'item' : null,
+                    'basicAreaSqFt': dialogMeasurementType == 'item' ? 0 : (double.tryParse(basicCtrl.text) ?? 0),
                     'frequencyType': frequencyType,
                     'boqTimesPerPeriod': int.tryParse(timesCtrl.text) ?? 1,
                   };
@@ -678,6 +717,7 @@ class _AreaGroupTile extends StatelessWidget {
           final freqType = area['frequencyType'] as String?;
           final boqTimes = area['boqTimesPerPeriod'] as num?;
           final tendered = area['tenderedAreaPerDay'] as num?;
+          final isItem = (area['measurementType'] as String?) == 'item';
           final hasBoq = basic != null || freqType != null;
 
           String freqLabel;
@@ -690,9 +730,11 @@ class _AreaGroupTile extends StatelessWidget {
           return ListTile(
             dense: true,
             title: Text(area['areaName'] ?? 'Unnamed'),
-            subtitle: hasBoq
-                ? Text('Basic: ${_num(basic)} sq.ft. | Freq: $freqLabel | Tendered: ${_num(tendered)}/day')
-                : Text('Freq: $freqLabel | Code: ${area['areaCode'] ?? '-'}'),
+            subtitle: isItem
+                ? Text('Item (no size) | Freq: $freqLabel | Billed by weightage')
+                : hasBoq
+                    ? Text('Basic: ${_num(basic)} sq.ft. | Freq: $freqLabel | Tendered: ${_num(tendered)}/day')
+                    : Text('Freq: $freqLabel | Code: ${area['areaCode'] ?? '-'}'),
             trailing: IconButton(
               icon: const Icon(Icons.edit, size: 20),
               onPressed: () => onEdit(area),

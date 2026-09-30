@@ -161,6 +161,7 @@ class StationArea {
       case 'unit': return 'Count / Unit';
       case 'number': return 'Number';
       case 'quantity': return 'Quantity';
+      case 'item': return 'Item';
       case 'as_available': return 'As Available';
       case 'not_applicable': return 'Not Applicable';
       case 'service':
@@ -171,6 +172,7 @@ class StationArea {
 
   String get quantityLabel {
     final mt = measurementType ?? 'as_available';
+    if (mt == 'item') return 'Item';
     if (mt == 'as_available') return 'As available';
     if (mt == 'not_applicable' || mt == 'service' || mt == 'service_based') return 'Not applicable';
     if (quantity != null) {
