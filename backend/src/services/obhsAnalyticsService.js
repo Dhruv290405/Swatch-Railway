@@ -3,10 +3,14 @@ import { ValidationError, NotFoundError } from '../errors/index.js';
 import logger from '../logger/index.js';
 
 class ObhsAnalyticsService {
-  async _resolveRunInstanceIds(filters) {
+  async _resolveRunInstanceIds(filters = {}) {
     const { runInstanceId, division, zone, startDate, endDate } = filters;
     if (runInstanceId) return [runInstanceId];
-    if (!startDate && !endDate) return [];
+    // Without a run or any division/zone scope there is nothing safe to
+    // aggregate over — returning [] would silently report 0% compliance.
+    if (!division && !zone && !startDate && !endDate) {
+      throw new ValidationError('Provide runInstanceId, or a division/zone, or a date range.');
+    }
     let query = db.collection('RunInstance');
     if (division) query = query.where('division', '==', division);
     if (zone) query = query.where('zone', '==', zone);
@@ -29,9 +33,9 @@ class ObhsAnalyticsService {
     return query;
   }
 
-  async getJanitorPerformance(division, zone, startDate, endDate) {
+  async getJanitorPerformance(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
       const janitors = {};
 
       const runDocs = (await Promise.all(runIds.map(runId =>
@@ -96,9 +100,9 @@ class ObhsAnalyticsService {
     }
   }
 
-  async getCoachCleanliness(division, zone, startDate, endDate) {
+  async getCoachCleanliness(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
 
       const coaches = {};
       const detailsSnaps = await Promise.all(runIds.map(runId =>
@@ -157,9 +161,9 @@ class ObhsAnalyticsService {
     }
   }
 
-  async getAttendanceCompliance(division, zone, startDate, endDate) {
+  async getAttendanceCompliance(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
 
       let total = 0, onTime = 0, late = 0;
       const attendanceSnaps = await Promise.all(runIds.map(runId =>
@@ -187,9 +191,9 @@ class ObhsAnalyticsService {
     }
   }
 
-  async getTaskCompletion(division, zone, startDate, endDate) {
+  async getTaskCompletion(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
 
       let total = 0, completed = 0, overdue = 0, planned = 0, open = 0, escalated = 0;
       const taskSnaps = await Promise.all(runIds.map(runId =>
@@ -220,9 +224,9 @@ class ObhsAnalyticsService {
     }
   }
 
-  async getPassengerRatingTrend(division, zone, startDate, endDate) {
+  async getPassengerRatingTrend(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
       const dailyRates = {};
 
       if (runIds.length > 0) {
@@ -274,9 +278,9 @@ class ObhsAnalyticsService {
     }
   }
 
-  async getPenaltyRisk(division, zone, startDate, endDate) {
+  async getPenaltyRisk(filters = {}) {
     try {
-      const runIds = await this._resolveRunInstanceIds({ division, zone, startDate, endDate });
+      const runIds = await this._resolveRunInstanceIds(filters);
       const overdueByWorker = {};
 
       if (runIds.length > 0) {

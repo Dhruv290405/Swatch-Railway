@@ -276,3 +276,14 @@ export const updateTaskDetailStatus = asyncHandler(async (req, res) => {
   const result = await v2Service.updateTask(req.params.detailId, req.body, req.user);
   res.status(200).json(result);
 });
+
+export const getRunTasks = asyncHandler(async (req, res) => {
+  const { v2Service } = await import('../services/v2Service.js');
+  const result = await v2Service.getTasks(req.params.runInstanceId, req.query);
+  res.status(200).json(result);
+});
+
+export const getRunComplaints = asyncHandler(async (req, res) => {
+  const result = await obhsService.getComplaints({ runInstanceId: req.params.runInstanceId });
+  res.status(200).json(result);
+});

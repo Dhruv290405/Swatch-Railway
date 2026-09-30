@@ -242,7 +242,7 @@ class ObhsService {
     if (runInstanceId) query = query.where('runInstanceId', '==', runInstanceId);
     const snapshot = await query.limit(200).get();
     let records = [];
-    snapshot.forEach(doc => records.push(doc.data()));
+    snapshot.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
     const roleUpper = (role || '').toUpperCase();
     if (roleUpper === 'WORKER' || roleUpper === 'RAILWAY WORKER') records = records.filter(r => r.workerId === callerId);
     records.sort((a, b) => ((b.updatedAt || '') > (a.updatedAt || '') ? 1 : -1));
@@ -553,7 +553,15 @@ class ObhsService {
     return { success: true, count: tasks.length, tasks };
   }
 
-  // ─── WATER CHECKS ───────────────────────────────────────────────────────
+  // ─── WATER CHECKS ────────────────────────────────────────────────────────
+
+  // A check is uniquely identified by the coach it was taken on plus the time
+  // slot, so the field app can submit a check without a server-issued id.
+  _slotDocId(prefix, runInstanceId, coachNo, slotTime) {
+    const slot = String(slotTime || '').replace(/[^0-9]/g, '').slice(0, 8) || 'NA';
+    const coach = String(coachNo || 'NA').replace(/[^A-Za-z0-9]/g, '');
+    return `${prefix}_${runInstanceId}_${coach}_${slot}`;
+  }
 
   async getWaterChecks(filters = {}) {
     const { runInstanceId } = filters;
@@ -562,32 +570,50 @@ class ObhsService {
       .where('runInstanceId', '==', runInstanceId)
       .limit(200).get();
     const checks = [];
-    snapshot.forEach(doc => checks.push(doc.data()));
+    snapshot.forEach(doc => checks.push({ id: doc.id, ...doc.data() }));
     checks.sort((a, b) => (a.checkTime || '').localeCompare(b.checkTime || ''));
     return { success: true, count: checks.length, checks };
   }
 
   async submitWaterCheck(body) {
-    const { checkId, waterStatus, lowWaterAlert, wateringPointSchedule, photoUrl } = body;
-    if (!checkId || !waterStatus) {
-      throw new ValidationError('checkId and waterStatus are required.');
+    const { checkId, runInstanceId, coachNo, checkTime, waterStatus, lowWaterAlert, wateringPointSchedule, photoUrl } = body;
+    if (!waterStatus) {
+      throw new ValidationError('waterStatus is required.');
     }
-    const validStatuses = ['full', 'low', 'empty'];
-    if (!validStatuses.includes(waterStatus)) {
+    if (!['full', 'low', 'empty'].includes(waterStatus)) {
       throw new ValidationError('Invalid waterStatus. Must be: full, low, or empty.');
     }
-    const ref = db.collection('water_checks').doc(checkId);
-    const doc = await ref.get();
-    if (!doc.exists) throw new NotFoundError('Water check not found.');
-    await ref.update({
+    if (!checkId && !(runInstanceId && coachNo)) {
+      throw new ValidationError('Provide checkId, or runInstanceId together with coachNo.');
+    }
+
+    const ref = checkId
+      ? db.collection('water_checks').doc(checkId)
+      : db.collection('water_checks').doc(this._slotDocId('water', runInstanceId, coachNo, checkTime));
+
+    const now = new Date().toISOString();
+    const payload = {
       waterStatus,
-      lowWaterAlert: lowWaterAlert || (waterStatus === 'empty') || (waterStatus === 'low'),
+      lowWaterAlert: lowWaterAlert !== undefined
+        ? !!lowWaterAlert
+        : (waterStatus === 'empty' || waterStatus === 'low'),
       wateringPointSchedule: wateringPointSchedule || null,
       photoUrl: photoUrl || null,
       status: 'COMPLETED',
-      completedAt: new Date().toISOString()
-    });
-    return { success: true, message: 'Water check submitted', checkId };
+      completedAt: now,
+      updatedAt: now
+    };
+    // Identity fields are only written when creating, so a resend of the same
+    // slot updates the check instead of orphaning the original.
+    if (!checkId) {
+      payload.runInstanceId = runInstanceId;
+      payload.coachNo = coachNo;
+      payload.checkTime = checkTime || now;
+      payload.checkDate = String(payload.checkTime).split('T')[0];
+      payload.createdAt = now;
+    }
+    await ref.set(payload, { merge: true });
+    return { success: true, message: 'Water check submitted', checkId: ref.id };
   }
 
   async getWaterAlerts(runInstanceId) {
@@ -597,11 +623,11 @@ class ObhsService {
       .where('lowWaterAlert', '==', true)
       .limit(200).get();
     const alerts = [];
-    snapshot.forEach(doc => alerts.push(doc.data()));
+    snapshot.forEach(doc => alerts.push({ id: doc.id, ...doc.data() }));
     return { success: true, count: alerts.length, alerts };
   }
 
-  // ─── SAFETY CHECKS ──────────────────────────────────────────────────────
+  // ─── SAFETY CHECKS ───────────────────────────────────────────────────────
 
   async getSafetyChecks(runInstanceId) {
     if (!runInstanceId) throw new ValidationError('runInstanceId query parameter is required.');
@@ -609,18 +635,22 @@ class ObhsService {
       .where('runInstanceId', '==', runInstanceId)
       .limit(200).get();
     const checks = [];
-    snapshot.forEach(doc => checks.push(doc.data()));
+    snapshot.forEach(doc => checks.push({ id: doc.id, ...doc.data() }));
     checks.sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
     return { success: true, count: checks.length, checks };
   }
 
   async submitSafetyCheck(body) {
-    const { checkId, fireExtinguisherStatus, fsdsStatus, cctvStatus, emergencyEquipmentStatus, photos, deficiencyReports, remarks } = body;
-    if (!checkId) throw new ValidationError('checkId is required.');
-    const ref = db.collection('safety_checks').doc(checkId);
-    const doc = await ref.get();
-    if (!doc.exists) throw new NotFoundError('Safety check not found.');
-    await ref.update({
+    const { checkId, runInstanceId, coachNo, scheduledTime, fireExtinguisherStatus, fsdsStatus, cctvStatus, emergencyEquipmentStatus, photos, deficiencyReports, remarks } = body;
+    if (!checkId && !(runInstanceId && coachNo)) {
+      throw new ValidationError('Provide checkId, or runInstanceId together with coachNo.');
+    }
+    const ref = checkId
+      ? db.collection('safety_checks').doc(checkId)
+      : db.collection('safety_checks').doc(this._slotDocId('safety', runInstanceId, coachNo, scheduledTime));
+
+    const now = new Date().toISOString();
+    const payload = {
       fireExtinguisherStatus: fireExtinguisherStatus || null,
       fsdsStatus: fsdsStatus || null,
       cctvStatus: cctvStatus || null,
@@ -629,9 +659,17 @@ class ObhsService {
       deficiencyReports: deficiencyReports || [],
       status: 'COMPLETED',
       remarks: remarks || null,
-      completedAt: new Date().toISOString()
-    });
-    return { success: true, message: 'Safety check submitted', checkId };
+      completedAt: now,
+      updatedAt: now
+    };
+    if (!checkId) {
+      payload.runInstanceId = runInstanceId;
+      payload.coachNo = coachNo;
+      payload.scheduledTime = scheduledTime || now;
+      payload.createdAt = now;
+    }
+    await ref.set(payload, { merge: true });
+    return { success: true, message: 'Safety check submitted', checkId: ref.id };
   }
 
   async reportSafetyDeficiency(userData, body) {
@@ -642,18 +680,15 @@ class ObhsService {
     const ref = db.collection('safety_checks').doc(checkId);
     const doc = await ref.get();
     if (!doc.exists) throw new NotFoundError('Safety check not found.');
+    // `deficiencyReports` is a List<String> in the Flutter model, so append the
+    // report text rather than an object.
     await ref.update({
-      deficiencyReports: admin.firestore.FieldValue.arrayUnion({
-        report: deficiencyReport,
-        photoUrl: photoUrl || null,
-        reportedAt: new Date().toISOString(),
-        reportedBy: userData.uid
-      })
+      deficiencyReports: admin.firestore.FieldValue.arrayUnion(deficiencyReport)
     });
     return { success: true, message: 'Deficiency reported', checkId };
   }
 
-  // ─── PETTY REPAIRS ──────────────────────────────────────────────────────
+  // ─── PETTY REPAIRS ───────────────────────────────────────────────────────
 
   async getPettyRepairs(runInstanceId) {
     if (!runInstanceId) throw new ValidationError('runInstanceId query parameter is required.');
@@ -661,25 +696,36 @@ class ObhsService {
       .where('runInstanceId', '==', runInstanceId)
       .limit(200).get();
     const repairs = [];
-    snapshot.forEach(doc => repairs.push(doc.data()));
+    snapshot.forEach(doc => repairs.push({ id: doc.id, ...doc.data() }));
     repairs.sort((a, b) => (a.inspectionTime || '').localeCompare(b.inspectionTime || ''));
     return { success: true, count: repairs.length, repairs };
   }
 
   async submitPettyRepair(body) {
-    const { repairId, items, remarks } = body;
-    if (!repairId) throw new ValidationError('repairId is required.');
-    const ref = db.collection('petty_repairs').doc(repairId);
-    const doc = await ref.get();
-    if (!doc.exists) throw new NotFoundError('Petty repair record not found.');
+    const { repairId, runInstanceId, coachNo, inspectionTime, items, remarks } = body;
+    if (!repairId && !(runInstanceId && coachNo)) {
+      throw new ValidationError('Provide repairId, or runInstanceId together with coachNo.');
+    }
+    const ref = repairId
+      ? db.collection('petty_repairs').doc(repairId)
+      : db.collection('petty_repairs').doc(this._slotDocId('repair', runInstanceId, coachNo, inspectionTime));
+
+    const now = new Date().toISOString();
     const updateData = {
       items: items || {},
       status: items ? 'COMPLETED' : 'PENDING',
       remarks: remarks || null,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     };
-    await ref.update(updateData);
-    return { success: true, message: 'Petty repair inspection submitted', repairId };
+    if (!repairId) {
+      updateData.runInstanceId = runInstanceId;
+      updateData.coachNo = coachNo;
+      updateData.inspectionTime = inspectionTime || now;
+      updateData.isEscalated = false;
+      updateData.createdAt = now;
+    }
+    await ref.set(updateData, { merge: true });
+    return { success: true, message: 'Petty repair inspection submitted', repairId: ref.id };
   }
 
   async escalatePettyRepair(body) {

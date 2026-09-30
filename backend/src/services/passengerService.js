@@ -44,15 +44,11 @@ class PassengerService {
       throw new ValidationError('All 5 rating parameters must be provided.');
     }
 
-    const runDoc = await db.collection('obhsRunInstances').doc(runInstanceId).get();
-    if (!runDoc.exists) {
-      // Try fallback to legacy RunInstance collection just in case
-      const legacyRunDoc = await db.collection('RunInstance').doc(runInstanceId).get();
-      if (!legacyRunDoc.exists) {
-        throw new NotFoundError('Journey not found.');
-      }
-    }
-    const runData = runDoc.exists ? runDoc.data() : (await db.collection('RunInstance').doc(runInstanceId).get()).data();
+    // RunInstance is the authoritative collection (written by the runs API).
+    // obhsRunInstances was a client-side mirror that is no longer written.
+    const runDoc = await db.collection('RunInstance').doc(runInstanceId).get();
+    if (!runDoc.exists) throw new NotFoundError('Journey not found.');
+    const runData = runDoc.data();
 
     const totalStars =
       Number(cleanliness) +

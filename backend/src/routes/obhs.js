@@ -70,6 +70,8 @@ router.get('/api/obhs/tasks/details/:headerId', verifyToken, obhsController.getT
 router.get('/api/obhs/tasks/coach', verifyToken, obhsController.getCoachTasks);
 router.post('/api/obhs/tasks/submit', verifyToken, obhsController.submitTask);
 router.patch('/api/obhs/tasks/detail/:detailId/status', verifyToken, obhsController.updateTaskDetailStatus);
+router.get('/api/obhs/tasks/run/:runInstanceId', verifyToken, obhsController.getRunTasks);
+router.get('/api/obhs/complaints/run/:runInstanceId', verifyToken, obhsController.getRunComplaints);
 
 router.get('/api/obhs/supervisor/dashboard', verifyToken, obhsController.getSupervisorDashboard);
 router.get('/api/obhs/worker/active-run', verifyToken, obhsController.getWorkerActiveRun);
