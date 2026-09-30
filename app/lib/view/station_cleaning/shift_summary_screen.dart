@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:crm_train/helper/location_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/model/station_models.dart';
@@ -282,37 +283,7 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
       : 'Photos are required for every area worked.';
   bool get _canSubmit => _entries.length >= _minAreas && _photoCount >= _requiredPhotoCount && _remarkCount == _entries.length;
 
-  Future<Position?> _captureGps() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      try {
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      } catch (e) {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      }
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<Position?> _captureGps() async => captureGps();
 
   Future<void> _takePhoto(_AreaEntry entry) async {
     final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1280);
@@ -348,12 +319,41 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
     setState(() => _isSubmitting = true);
     try {
       final isResubmit = widget.existingSummaryUid != null && widget.existingSummaryUid!.isNotEmpty;
+
+      // Upload every photo up front, a few at a time. Uploading them one-by-one
+      // while building the payload made the final submit take as long as the sum
+      // of all uploads, which is what looked like a hanging submit.
+      final pending = <({int entryIndex, int photoIndex, String path})>[];
+      final slotOf = <String, int>{};
+      for (var ei = 0; ei < _entries.length; ei++) {
+        final photos = _entries[ei].photos;
+        for (var pi = 0; pi < photos.length; pi++) {
+          slotOf['$ei:$pi'] = pending.length;
+          pending.add((entryIndex: ei, photoIndex: pi, path: photos[pi].file.path));
+        }
+      }
+      final uploaded = List<String?>.filled(pending.length, null);
+      const uploadBatch = 3;
+      for (var start = 0; start < pending.length; start += uploadBatch) {
+        final end = start + uploadBatch < pending.length ? start + uploadBatch : pending.length;
+        final batch = pending.sublist(start, end);
+        final urls = await Future.wait(batch.map((p) async {
+          final url = await WorkerRepository.uploadMedia(p.path);
+          return url.isEmpty ? null : url;
+        }));
+        for (var i = 0; i < batch.length; i++) {
+          uploaded[start + i] = urls[i];
+        }
+      }
+
       final areasPayload = <Map<String, dynamic>>[];
-      for (final e in _entries) {
+      for (var ei = 0; ei < _entries.length; ei++) {
+        final e = _entries[ei];
         final photoUrls = <String>[];
-        for (final p in e.photos) {
-          final url = await WorkerRepository.uploadMedia(p.file.path);
-          if (url.isNotEmpty) photoUrls.add(url);
+        for (var pi = 0; pi < e.photos.length; pi++) {
+          final slot = slotOf['$ei:$pi'];
+          final url = slot == null ? null : uploaded[slot];
+          if (url != null && url.isNotEmpty) photoUrls.add(url);
         }
         // Resubmission: carry the previous summary photo forward when no new
         // photo was taken for the area, so it is not lost.

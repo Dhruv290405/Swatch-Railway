@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/repositories/station_cleaning_repository.dart';
 import 'package:crm_train/repositories/task_type_repository.dart';
@@ -12,6 +11,7 @@ import 'package:crm_train/model/task_type_model.dart';
 import 'package:crm_train/repositories/worker_repo.dart';
 import 'package:crm_train/helper/api_error_handler.dart';
 import 'package:crm_train/helper/app_snackbar.dart';
+import 'package:crm_train/helper/location_helper.dart';
 import 'package:crm_train/utills/app_colors.dart';
 import 'shift_summary_screen.dart';
 
@@ -99,17 +99,42 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
     setState(() => _isLoading = false);
   }
 
+  /// The shift this supervisor is working on [_selectedDate].
+  ///
+  /// A supervisor can hold two shifts at the same station on the same date, so
+  /// everything about the shift summary (banner, submit gate, resubmit) has to be
+  /// scoped to this one — otherwise one shift's summary blocks or replaces the
+  /// other shift's.
+  String? get _currentShift {
+    for (final t in _tasks) {
+      final s = (t['shift'] ?? '').toString().trim();
+      if (s.isNotEmpty) return s;
+    }
+    return null;
+  }
+
+  String get _summaryStatus => (_summary?['status'] ?? '').toString().toLowerCase();
+
+  /// True once a summary has been sent for this shift: it must never be sent
+  /// again unless the railway rejected it.
+  bool get _summaryAlreadySent => _summaryStatus == 'submitted' || _summaryStatus == 'approved';
+
   Future<void> _loadSummary() async {
     try {
+      final shift = _currentShift;
       final result = await ApiService.getShiftSummaries(
         stationId: widget.stationId,
         date: _selectedDate,
         supervisorId: widget.supervisorId,
+        shift: shift,
       );
       if (!mounted) return;
-      final list = result.toList()
-        ..sort((a, b) =>
-            ((b['submittedAt'] ?? '') as String).compareTo((a['submittedAt'] ?? '') as String));
+      var list = result.toList();
+      if (shift != null) {
+        list = list.where((s) => (s['shift'] ?? '').toString().trim().toLowerCase() == shift.toLowerCase()).toList();
+      }
+      list.sort((a, b) =>
+          ((b['submittedAt'] ?? '') as String).compareTo((a['submittedAt'] ?? '') as String));
       setState(() {
         _summary = list.isEmpty ? null : list.first;
         _summaryLoading = false;
@@ -168,46 +193,62 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
     return list;
   }
 
-  int get _pendingCount => _tasks.where((t) => t['status'] == 'pending').length;
-  int get _overdueCount => _tasks.where((t) => t['isOverdue'] == true).length;
-  int get _inProgressCount => _tasks.where((t) => t['status'] == 'in_progress').length;
-  int get _completedCount => _tasks.where((t) => t['status'] == 'completed' || t['status'] == 'approved').length;
+  int get _pendingCount => _tasks.where((t) => _taskStatus(t) == 'pending').length;
+  int get _overdueCount => _tasks.where(_isTaskOverdue).length;
+  int get _inProgressCount => _tasks.where((t) => _taskStatus(t) == 'in_progress').length;
+  int get _completedCount => _tasks.where(_isTaskDone).length;
+
+  String _taskStatus(Map<String, dynamic> t) => (t['status'] ?? '').toString().trim().toLowerCase();
+
+  bool _isTaskDone(Map<String, dynamic> t) => const {'completed', 'approved'}.contains(_taskStatus(t));
+
+  /// Overdue = the task's 1h start window closed without it ever being started, or
+  /// the backend already flagged it missed. Mirrors the backend isTaskMissed rule
+  /// so the mid-attendance ratio, the overdue badge and the summary gate agree.
+  bool _isTaskOverdue(Map<String, dynamic> t) {
+    if (_taskStatus(t) == 'missed') return true;
+    // Only an unstarted task can lapse — once it has been started the supervisor
+    // owns it, so it stays in the ratio and keeps blocking the shift.
+    return _isTaskWindowClosed(t);
+  }
+
+  /// Task the supervisor can still be expected to work: not cancelled, not
+  /// already done, not flagged missed, and its start window is still open.
+  /// This is the denominator for both the mid-attendance half and the summary
+  /// gate — overdue/window-closed tasks can never be completed, so counting them
+  /// would make "half done" and "all done" unreachable.
+  bool _isTaskActionable(Map<String, dynamic> t) {
+    final status = _taskStatus(t);
+    if (const {'cancelled', 'missed', 'completed', 'approved'}.contains(status)) return false;
+    return !_isTaskWindowClosed(t);
+  }
+
+  /// A task is MISSED/overdue when its 1-hour start window (scheduledTime <= now
+  /// < scheduledTime + 1h, IST) elapsed without it ever being started. Mirrors
+  /// the backend _isTaskMissed rule in stationCleaningService.js.
+  bool _isTaskWindowClosed(Map<String, dynamic> t) {
+    final status = _taskStatus(t);
+    if (!{'pending', 'assigned', ''}.contains(status)) return false;
+    final scheduledDate = (t['scheduledDate'] ?? t['date'] ?? '').toString();
+    final scheduledTime = (t['scheduledTime'] ?? '').toString();
+    if (scheduledDate.isEmpty || scheduledTime.isEmpty) return false;
+    final dm = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(scheduledDate);
+    final tm = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(scheduledTime);
+    if (dm == null || tm == null) return false;
+    final scheduledIST = DateTime.utc(
+      int.parse(dm.group(1)!),
+      int.parse(dm.group(2)!),
+      int.parse(dm.group(3)!),
+      int.parse(tm.group(1)!),
+      int.parse(tm.group(2)!),
+    );
+    final nowIST = DateTime.now().toUtc().add(const Duration(milliseconds: 19800000));
+    return !nowIST.isBefore(scheduledIST.add(const Duration(hours: 1)));
+  }
 
   // ─── Attendance ──────────────────────────────────────────────────────────
 
   final _picker = ImagePicker();
-
-  Future<Position?> _captureGps() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return null;
-      }
-
-      try {
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      } catch (e) {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      }
-    } catch (_) {
-      return null;
-    }
-  }
 
   Future<void> _markAttendance(String type) async {
     bool proceed = false;
@@ -271,7 +312,7 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
         return;
       }
 
-      final pos = await _captureGps();
+      final pos = await captureGps();
       if (pos == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -298,18 +339,21 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
 
       if (mounted) {
         if (type == 'end') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Shift ended — submit your photos for critical areas now'),
-              backgroundColor: Colors.orange.shade800,
-              duration: const Duration(seconds: 4),
-              action: SnackBarAction(
-                label: 'SUBMIT',
-                textColor: Colors.white,
-                onPressed: () => _promptShiftSummary(),
+          // Nothing to prompt for when this shift's summary has already been sent.
+          if (!_summaryAlreadySent) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Shift ended — submit your photos for critical areas now'),
+                backgroundColor: Colors.orange.shade800,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'SUBMIT',
+                  textColor: Colors.white,
+                  onPressed: () => _promptShiftSummary(),
+                ),
               ),
-            ),
-          );
+            );
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${type.toUpperCase()} attendance marked'), backgroundColor: kSuccessGreen),
@@ -317,7 +361,7 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
         }
       }
 
-      if (type == 'end' && mounted) {
+      if (type == 'end' && mounted && !_summaryAlreadySent) {
         _promptShiftSummary();
       }
     } catch (e) {
@@ -335,29 +379,41 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
     await _loadTasks();
     await _loadSummary();
 
-    final existingStatus = (_summary?['status'] ?? '').toString().toLowerCase();
+    final existingStatus = _summaryStatus;
     if (existingStatus == 'submitted' || existingStatus == 'approved') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('A shift summary for this shift is already $existingStatus.'),
+            content: Text('Your shift summary for this shift is already $existingStatus. It can only be sent again after the railway rejects it.'),
             backgroundColor: kRailwayBlue,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
       return;
     }
 
-    // Gate: only actionable tasks (pending / in progress / rejected / resubmitted)
-    // block the summary submission. Completed / approved / cancelled and MISSED
-    // tasks (start window elapsed, never started) never block.
-    final nonBlockingStatuses = {'completed', 'approved', 'cancelled', 'missed'};
-    final blockers = _tasks.where((t) {
-      final status = (t['status'] ?? '').toString().toLowerCase();
-      if (nonBlockingStatuses.contains(status)) return false;
-      return !_isTaskMissed(t);
-    }).toList();
-    final missedTasks = _tasks.where(_isTaskMissed).toList();
+    // Mid-shift attendance must be marked before the shift can be closed out.
+    if (!_midMarked) {
+      await _loadAttendanceStatus();
+    }
+    if (!_midMarked) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mark your mid-shift attendance (2/3) before submitting the shift summary.'),
+            backgroundColor: kWarningOrange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Gate: only still-workable tasks block the summary submission. Completed,
+    // approved, cancelled and overdue/window-closed (missed) tasks never block.
+    final blockers = _tasks.where(_isTaskActionable).toList();
+    final missedTasks = _tasks.where(_isTaskOverdue).toList();
     if (blockers.isNotEmpty) {
       final uniqAreas = <String>{};
       for (final t in blockers) {
@@ -450,9 +506,7 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
       return;
     }
 
-    final primaryShift = _tasks.isNotEmpty
-        ? (_tasks.first['shift']?.toString() ?? 'Morning')
-        : 'Morning';
+    final primaryShift = _currentShift ?? (_tasks.isNotEmpty ? (_tasks.first['shift']?.toString() ?? 'Morning') : 'Morning');
 
     if (!mounted) return;
     showDialog(
@@ -510,9 +564,23 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
   Future<void> _openResubmit() async {
     final stored = _summary;
     if (stored == null) return;
+    final existingUid = (stored['uid'] ?? stored['id'] ?? '').toString();
+    if (existingUid.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find the rejected shift summary. Pull to refresh and try again.'),
+            backgroundColor: kErrorRed,
+          ),
+        );
+      }
+      return;
+    }
     final rawAreas = (stored['areas'] as List?) ?? [];
     final areas = rawAreas.cast<Map<String, dynamic>>();
     final primaryShift = (stored['shift'] ?? 'Morning').toString();
+    // Resubmit the very summary that was rejected, not whatever shift is on screen.
+    final summaryDate = (stored['date'] ?? _selectedDate).toString();
 
     if (areas.isEmpty) {
       if (mounted) {
@@ -536,11 +604,11 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
           supervisorId: widget.supervisorId,
           supervisorName: widget.supervisorName,
           shift: primaryShift,
-          date: _selectedDate,
+          date: summaryDate,
           areas: areas,
-          existingSummaryUid: (stored['uid'] ?? stored['id'] ?? '').toString(),
+          existingSummaryUid: existingUid,
           rejectionReason: (stored['rejectionReason'] ?? '').toString(),
-          missedCount: _tasks.where(_isTaskMissed).length,
+          missedCount: _tasks.where(_isTaskOverdue).length,
         ),
       ),
     );
@@ -553,74 +621,70 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
 
   // ─── Task Assignment ─────────────────────────────────────────────────────
 
-  // Actionable = non-cancelled tasks whose start window has not elapsed. Missed
-  // tasks (window lapsed, never started) can no longer be worked, so they must
-  // not inflate the half-mid denominator — mirrors the backend completion logic.
-  int get _activeTaskCount => _tasks.where((t) => (t['status'] ?? '').toString().toLowerCase() != 'cancelled' && !_isTaskMissed(t)).length;
-  bool get _hasCompletedHalf => _activeTaskCount > 0 && _completedCount >= (_activeTaskCount / 2).ceil();
+  // Workable tasks = not cancelled, not railway-flagged missed, and whose 1h start
+  // window is still open. Overdue/window-closed tasks can never be completed, so
+  // counting them would make "half done" unreachable and the mid prompt would
+  // never fire. Done tasks stay in the count — they are half of the shift.
+  int get _workableTaskCount => _tasks.where(_isTaskActionable).length;
 
-  // A task is MISSED when its 1-hour start window (scheduledTime <= now <
-  // scheduledTime + 1h, IST) elapsed without it ever being started. Mirrors
-  // the backend _isTaskMissed rule in stationCleaningService.js.
-  bool _isTaskMissed(Map<String, dynamic> t) {
-    final status = (t['status'] ?? '').toString().toLowerCase();
-    if (!{'pending', 'assigned', ''}.contains(status)) return false;
-    final scheduledDate = (t['scheduledDate'] ?? t['date'] ?? '').toString();
-    final scheduledTime = (t['scheduledTime'] ?? '').toString();
-    if (scheduledDate.isEmpty || scheduledTime.isEmpty) return false;
-    final dm = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(scheduledDate);
-    final tm = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(scheduledTime);
-    if (dm == null || tm == null) return false;
-    final scheduledIST = DateTime.utc(
-      int.parse(dm.group(1)!),
-      int.parse(dm.group(2)!),
-      int.parse(dm.group(3)!),
-      int.parse(tm.group(1)!),
-      int.parse(tm.group(2)!),
-    );
-    final nowIST = DateTime.now().toUtc().add(const Duration(milliseconds: 19800000));
-    return !nowIST.isBefore(scheduledIST.add(const Duration(hours: 1)));
-  }
+  bool get _hasCompletedHalf => _workableTaskCount > 0 && _completedCount >= (_workableTaskCount / 2).ceil();
 
-  void _handleComplete(Map<String, dynamic> t) {
+  Future<void> _handleComplete(Map<String, dynamic> t) async {
+    // Half the workable tasks are done → ask for mid attendance once. Still allow
+    // the task to be completed afterwards so dismissing the prompt can't strand
+    // the remaining work.
     if (!_midMarked && _hasCompletedHalf) {
-      _promptMidAttendance();
-      return;
+      await _promptMidAttendance();
+      if (!mounted) return;
     }
     _showCompleteSheet(t['uid'] ?? t['id']);
   }
 
   Future<void> _promptMidAttendance() async {
-    await showDialog(
+    if (!mounted) return;
+    final markNow = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.pause_circle, color: kWarningOrange, size: 40),
         title: const Text('Mark Mid Attendance'),
-        content: const Text(
-          'You have completed half of your tasks. Mark your Mid attendance '
-          'before completing the remaining tasks.',
-          textAlign: TextAlign.center,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You have completed $_completedCount of $_workableTaskCount task(s) for this shift. '
+              'Mark your Mid attendance before finishing the remaining work.',
+              textAlign: TextAlign.center,
+            ),
+            if (_overdueCount > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$_overdueCount overdue task(s) whose start window closed are not counted.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: kWarningOrange),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Later'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _markAttendance('mid');
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: kWarningOrange, foregroundColor: Colors.white),
             child: const Text('Mark Mid Attendance'),
           ),
         ],
       ),
     );
+    if (markNow == true && mounted) await _markAttendance('mid');
   }
 
   // ─── Task Execution ──────────────────────────────────────────────────────
+
+  String? _startingTaskId;
 
   Future<void> _startTask(String taskId, [Map<String, dynamic>? task]) async {
     if (!_startMarked) {
@@ -641,19 +705,18 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
       return;
     }
 
+    if (_startingTaskId == taskId) return;
+    setState(() => _startingTaskId = taskId);
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       if (token == null) return;
 
       double? lat, lng;
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-        );
-        lat = pos.latitude;
-        lng = pos.longitude;
-      } catch (_) {}
+      final fix = await captureGps();
+      lat = fix?.latitude;
+      lng = fix?.longitude;
 
       final body = <String, dynamic>{};
       if (lat != null) { body['gpsLat'] = lat; body['gpsLng'] = lng; }
@@ -674,6 +737,8 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: kErrorRed));
       }
+    } finally {
+      if (mounted && _startingTaskId == taskId) setState(() => _startingTaskId = null);
     }
   }
 
@@ -753,10 +818,13 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
         ],
       );
     }
+    final isStarting = _startingTaskId == taskIdOf(t);
     return ElevatedButton.icon(
-      icon: const Icon(Icons.play_arrow, size: 16),
-      label: const Text('Start'),
-      onPressed: () => _startTask(taskIdOf(t), t),
+      icon: isStarting
+          ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : const Icon(Icons.play_arrow, size: 16),
+      label: Text(isStarting ? 'Starting...' : 'Start'),
+      onPressed: isStarting ? null : () => _startTask(taskIdOf(t), t),
     );
   }
 
@@ -928,16 +996,37 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
           if (_startMarked)
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.camera_alt, size: 18),
-                label: const Text('Submit Shift Summary (auto-marks End)'),
-                onPressed: () => _promptShiftSummary(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade800,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
+              child: _summaryAlreadySent
+                  ? ElevatedButton.icon(
+                      icon: const Icon(Icons.verified, size: 18),
+                      label: Text(
+                        _summaryStatus == 'approved'
+                            ? 'Shift summary approved'
+                            : 'Shift summary submitted — awaiting approval',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        disabledBackgroundColor: kSuccessGreen.withValues(alpha: 0.35),
+                        disabledForegroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: Text(
+                        _summaryStatus == 'rejected'
+                            ? 'Resubmit Shift Summary (rejected)'
+                            : 'Submit Shift Summary (auto-marks End)',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onPressed: () => _summaryStatus == 'rejected' ? _openResubmit() : _promptShiftSummary(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _summaryStatus == 'rejected' ? kErrorRed : Colors.orange.shade800,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
             ),
         ],
       ),
@@ -1226,11 +1315,21 @@ class _SupervisorTaskExecutionSheetState extends State<_SupervisorTaskExecutionS
   }
 
   Future<void> _pickActivities() async {
+    // Make sure the list is in hand *before* the sheet opens. The sheet used to
+    // render from the parent's state, which cannot rebuild a modal bottom sheet
+    // once it is showing - a slow first load left the spinner running until the
+    // sheet was closed and reopened.
+    if (_loadingActivities) {
+      await _loadActivities();
+    }
+    if (!mounted) return;
+
     final selected = <String>{};
     for (final a in (_selectedActivities ?? [])) {
       final id = a['uid']?.toString() ?? '';
       if (id.isNotEmpty) selected.add(id);
     }
+    final options = List<TaskType>.from(_activityOptions);
     final picked = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
       isScrollControlled: true,
@@ -1266,10 +1365,12 @@ class _SupervisorTaskExecutionSheetState extends State<_SupervisorTaskExecutionS
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: _loadingActivities
-                        ? const Center(child: CircularProgressIndicator())
+                    child: options.isEmpty
+                        ? const Center(
+                            child: Text('No activities available', style: TextStyle(color: Colors.black54)),
+                          )
                         : ListView(
-                            children: _activityOptions.map((tt) {
+                            children: options.map((tt) {
                               return CheckboxListTile(
                                 dense: true,
                                 controlAffinity: ListTileControlAffinity.leading,
@@ -1296,7 +1397,7 @@ class _SupervisorTaskExecutionSheetState extends State<_SupervisorTaskExecutionS
                       onPressed: selected.isEmpty
                           ? null
                           : () {
-                              final pickedList = _activityOptions
+                              final pickedList = options
                                   .where((tt) => selected.contains(tt.uid))
                                   .map((tt) => {'uid': tt.uid, 'name': tt.name, 'label': tt.label})
                                   .toList();
@@ -1430,13 +1531,9 @@ class _SupervisorTaskExecutionSheetState extends State<_SupervisorTaskExecutionS
       if (token == null) throw Exception('AUTH_ERROR');
 
       double? lat, lng;
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-        );
-        lat = pos.latitude;
-        lng = pos.longitude;
-      } catch (_) {}
+      final fix = await captureGps();
+      lat = fix?.latitude;
+      lng = fix?.longitude;
 
       final body = <String, dynamic>{
         'remarks': _commentCtrl.text.trim(),

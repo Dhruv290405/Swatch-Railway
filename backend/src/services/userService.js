@@ -656,9 +656,29 @@ class UserService {
     return { message: `User ${userData.fullName} has been suspended.`, suspendedBy: adminName };
   }
 
+  // List responses are consumed on slow mobile networks (the user list loads right
+  // after login), so keep them small: the password hash never leaves the database
+  // and the embedded entity is reduced to the fields the list UI actually renders.
+  _toListUserDoc(docId, data, includeEntityDetails) {
+    const out = { ...data, uid: docId };
+    delete out.password;
+    const entityDetails = out.entityDetails;
+    if (entityDetails && typeof entityDetails === 'object' && !Array.isArray(entityDetails)) {
+      out.entityDetails = includeEntityDetails
+        ? entityDetails
+        : {
+            uid: entityDetails.uid,
+            companyName: entityDetails.companyName,
+            contractorName: entityDetails.contractorName
+          };
+    }
+    return out;
+  }
+
   async getUsers(requesterData, filters) {
-    const { status: filterStatus, division, zone, depot } = filters;
+    const { status: filterStatus, division, zone, depot, entityId } = filters;
     const { uid: requesterUid, role, zone: userZone, division: userDivision } = requesterData;
+    const includeEntityDetails = String(filters.includeEntityDetails) === 'true';
     const userRole = (role || "").trim().toUpperCase().replace(/\s+/g, '_');
 
     const ROLE_HIERARCHY = {
@@ -693,6 +713,10 @@ class UserService {
       query = query.where('contractId', '==', requesterData.contractId);
     }
 
+    if (entityId) {
+      query = query.where('entityId', '==', entityId);
+    }
+
     const snapshot = await query.limit(5000).get();
     let userList = [];
     let stats = { pending: 0, approved: 0, rejected: 0 };
@@ -713,14 +737,45 @@ class UserService {
 
       if (filterStatus) {
         if (s === filterStatus.toUpperCase()) {
-          userList.push({ ...d, uid: doc.id });
+          userList.push(this._toListUserDoc(doc.id, d, includeEntityDetails));
         }
       } else {
-        userList.push({ ...d, uid: doc.id });
+        userList.push(this._toListUserDoc(doc.id, d, includeEntityDetails));
       }
     });
 
-    return { success: true, count: userList.length, stats, users: userList };
+    // Newest first so paging through the list is stable and predictable.
+    userList.sort((a, b) => {
+      const aTime = (a.createdAt && a.createdAt.toDate) ? a.createdAt.toDate().getTime() : (a.createdAt || a.submitted_at || '');
+      const bTime = (b.createdAt && b.createdAt.toDate) ? b.createdAt.toDate().getTime() : (b.createdAt || b.submitted_at || '');
+      if (typeof aTime === 'number' && typeof bTime === 'number') return bTime - aTime;
+      return String(bTime).localeCompare(String(aTime));
+    });
+
+    // Chunked delivery: callers that only need a screenful pass limit=... and
+    // page through with hasMore instead of downloading the whole list at once.
+    const total = userList.length;
+    const DEFAULT_LIMIT = 200;
+    const MAX_LIMIT = 500;
+    const requestedLimit = parseInt(filters.limit, 10);
+    const pageSize = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, MAX_LIMIT)
+      : DEFAULT_LIMIT;
+    const requestedPage = parseInt(filters.page, 10);
+    const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const start = (currentPage - 1) * pageSize;
+    const pagedUsers = userList.slice(start, start + pageSize);
+
+    return {
+      success: true,
+      count: pagedUsers.length,
+      total,
+      page: currentPage,
+      limit: pageSize,
+      hasMore: start + pagedUsers.length < total,
+      stats,
+      users: pagedUsers
+    };
   }
 
   async getRailwayWorkers(requesterData, filters) {

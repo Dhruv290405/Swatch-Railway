@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/repositories/station_cleaning_repository.dart';
 import 'package:crm_train/repositories/task_type_repository.dart';
 import 'package:crm_train/model/task_type_model.dart';
 import 'package:crm_train/helper/api_error_handler.dart';
+import 'package:crm_train/helper/location_helper.dart';
 import 'package:crm_train/utills/app_colors.dart';
 
 const List<Map<String, String>> _defaultCleaningActivities = [
@@ -135,24 +135,9 @@ class _WorkerTaskViewScreenState extends State<WorkerTaskViewScreen> {
   int get _totalTaskCount => _tasks.length;
 
   Future<Map<String, double>?> _captureGps() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      return {'lat': pos.latitude, 'lng': pos.longitude};
-    } catch (_) {
-      return null;
-    }
+    final pos = await captureGps();
+    if (pos == null) return null;
+    return {'lat': pos.latitude, 'lng': pos.longitude};
   }
 
   Future<void> _startTask(String taskId) async {
@@ -704,13 +689,11 @@ class _TaskExecutionSheetState extends State<_TaskExecutionSheet> {
 
       double? lat;
       double? lng;
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-        );
+      final pos = await captureGps();
+      if (pos != null) {
         lat = pos.latitude;
         lng = pos.longitude;
-      } catch (_) {}
+      }
 
       final body = <String, dynamic>{
         'remarks': commentController.text.trim(),

@@ -2673,14 +2673,15 @@ class StationCleaningService {
     }
     this._validateSummaryAreas(areas);
 
-    // ─── Duplicate guard: a submitted/approved summary already exists for this
-    // supervisor/date/shift → block (resubmission is done via resubmit) ───
+    // ─── Duplicate guard: one summary per supervisor/date/shift, ever. Once a
+    // summary has been sent it must never be sent again through this path; after
+    // a rejection the supervisor has to use the resubmit endpoint. ───
     const existingSnap = await db.collection('stationShiftSummaries')
       .where('supervisorId', '==', supervisorId)
       .get();
-    let existingStatus = null;
+    let existing = null;
     existingSnap.forEach(d => {
-      if (existingStatus) return;
+      if (existing) return;
       const s = d.data();
       if (String(s.date) !== String(date)) return;
       const sShift = s.shift ? String(s.shift).trim().toLowerCase() : '';
@@ -2690,17 +2691,28 @@ class StationCleaningService {
       } else if (sShift && sShift !== 'morning') {
         return;
       }
-      if (['submitted', 'approved'].includes(s.status)) existingStatus = s.status;
+      existing = { uid: d.id, status: String(s.status || 'submitted') };
     });
-    if (existingStatus) {
-      throw new ValidationError(`A shift summary for this supervisor/date/shift is already ${existingStatus}. You cannot submit again while it is ${existingStatus}.`);
+    if (existing) {
+      if (existing.status === 'rejected') {
+        throw new ValidationError('This shift summary was rejected. Use the resubmit option to send it again.');
+      }
+      throw new ValidationError(`A shift summary for this supervisor/date/shift is already ${existing.status}. You cannot submit again while it is ${existing.status}.`);
     }
 
     const now = new Date().toISOString();
-    const ref = db.collection('stationShiftSummaries').doc();
+    // Deterministic id + create(): two submits arriving at the same time cannot
+    // both get through the scan above and write a second summary.
+    const idShift = String(shift || '').trim().toLowerCase() || 'allshift';
+    const summaryId = `ss_${supervisorId}_${date}_${idShift}`
+      .replace(/[^\w-]/g, '_')
+      .slice(0, 900);
+    const ref = db.collection('stationShiftSummaries').doc(summaryId);
 
-    // ─── Gate: all tasks for this supervisor/station/date/shift must be
-    // terminal (completed/approved/cancelled) before the summary can submit ───
+    // ─── Gate: every task for this supervisor/station/date/shift must be
+    // terminal (completed/approved/cancelled/missed) before the summary can
+    // submit. "missed" = still pending/assigned after its 1h start window
+    // elapsed, so it can no longer be worked and must not block the shift. ───
     const resolvedShift = String(shift || '').trim().toLowerCase();
     await this._assertAllTasksTerminal(supervisorId, stationId, date, resolvedShift);
     const enriched = await this._enrichSummaryAreas(areas);
@@ -2729,7 +2741,14 @@ class StationCleaningService {
       createdAt: now,
       updatedAt: now,
     };
-    await ref.set(record);
+    try {
+      await ref.create(record);
+    } catch (err) {
+      if (err && (err.code === 6 || err.code === 'already-exists')) {
+        throw new ValidationError('A shift summary for this supervisor/date/shift already exists. You cannot submit it again.');
+      }
+      throw err;
+    }
 
     // ─── End-of-shift attendance: submitting the shift summary auto-marks the
     // contractor supervisor's END attendance in station_cleaning_attendance ───

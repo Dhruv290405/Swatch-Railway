@@ -96,7 +96,6 @@ class StationCleaningAttendanceService {
 
     const getTaskCompletion = async () => {
       try {
-        const ownShift = await getRecordedShift(workerId);
         let query = db.collection('cleaningTasks');
         if (isContractor) {
           query = query.where('supervisorId', '==', workerId);
@@ -104,24 +103,48 @@ class StationCleaningAttendanceService {
           query = query.where('workerId', '==', workerId);
         }
         const taskSnap = await query.limit(1000).get();
-        const tasks = [];
+        const allTasks = [];
         taskSnap.forEach(doc => {
           const t = doc.data();
           if (t.date !== todayIST) return;
-          // Cancelled and MISSED tasks are terminal and never block shifts
-          // (the app's own "Complete All Tasks First" check treats them the
-          // same way), so they must not inflate the completion denominator.
+          allTasks.push(t);
+        });
+
+        // No shift recorded yet → fall back to the shift most of this user's own
+        // tasks belong to. Without this a supervisor working both shifts is
+        // measured against the other shift's tasks too, and "half" can never be
+        // reached (same fallback order as taskManagementService._getOwnShift).
+        let ownShift = await getRecordedShift(workerId);
+        if (!ownShift) {
+          const shiftCounts = new Map();
+          allTasks.forEach(t => {
+            const s = t.shift ? String(t.shift).trim().toLowerCase() : '';
+            if (!s) return;
+            shiftCounts.set(s, (shiftCounts.get(s) || 0) + 1);
+          });
+          let best = null;
+          shiftCounts.forEach((count, s) => {
+            if (best === null || count > shiftCounts.get(best)) best = s;
+          });
+          ownShift = best;
+        }
+
+        const tasks = allTasks.filter(t => {
           const status = String(t.status || '').toLowerCase();
-          if (status === 'cancelled') return;
-          if (isTaskMissed(t)) return;
+          // Cancelled, railway-flagged MISSED and window-elapsed tasks are
+          // terminal and can never be completed, so they must not inflate the
+          // denominator — otherwise MID ("half done") and END ("all done")
+          // attendance stay permanently unreachable.
+          if (status === 'cancelled' || status === 'missed') return false;
+          if (isTaskMissed(t)) return false;
           // Only tasks belonging to the user's recorded shift count — the
           // app only ever shows those, so the ratios stay aligned.
           const shift = t.shift ? String(t.shift).trim().toLowerCase() : null;
-          if (ownShift && shift && shift !== ownShift) return;
-          tasks.push(t);
+          if (ownShift && shift && shift !== ownShift) return false;
+          return true;
         });
         const doneStatuses = ['completed', 'approved'];
-        const completedCount = tasks.filter(t => doneStatuses.includes(t.status)).length;
+        const completedCount = tasks.filter(t => doneStatuses.includes(String(t.status || '').toLowerCase())).length;
         return { total: tasks.length, completedCount };
       } catch (e) {
         logger.error('StationCleaning', '(Attendance Task Completion) Error:', e);

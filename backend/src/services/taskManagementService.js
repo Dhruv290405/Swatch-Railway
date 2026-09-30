@@ -584,12 +584,28 @@ class TaskManagementService {
       }
     }
     const resolved = [];
+    const ids = normalized.map((i) => String(i.id)).filter(Boolean);
+    // One batched read for every chosen activity instead of one round trip per
+    // activity - starting/submitting a task with several activities selected was
+    // paying N sequential Firestore calls.
+    const typeDocs = new Map();
+    for (let i = 0; i < ids.length; i += 30) {
+      const chunk = ids.slice(i, i + 30);
+      if (chunk.length === 1) {
+        const single = await db.collection('taskTypes').doc(chunk[0]).get();
+        if (single.exists) typeDocs.set(chunk[0], single.data());
+      } else {
+        const snap = await db.collection('taskTypes')
+          .where(admin.firestore.n.documentId(), 'in', chunk)
+          .get();
+        snap.forEach((doc) => typeDocs.set(doc.id, doc.data()));
+      }
+    }
     for (const item of normalized) {
       if (!item.id) continue;
       const tid = String(item.id);
-      const typeDoc = await db.collection('taskTypes').doc(tid).get();
-      if (typeDoc.exists) {
-        const td = typeDoc.data();
+      const td = typeDocs.get(tid);
+      if (td) {
         resolved.push({
           id: tid,
           name: td.name || item.name || '',

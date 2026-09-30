@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,16 +14,32 @@ class BaseRepository {
   }
 
   static Future<http.Response> _handleRequest(
-    Future<http.Response> Function() request,
-  ) async {
-    try {
-      final response = await request().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () => throw Exception('Request timeout'),
-      );
-      return response;
-    } catch (e) {
-      rethrow;
+    Future<http.Response> Function() request, {
+    bool allowRetry = false,
+  }) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final response = await request().timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException('Request timeout'),
+        );
+        if (attempt == 0 || (response.statusCode >= 200 && response.statusCode < 400)) {
+          return response;
+        }
+        // 5xx / 429 are worth one more shot; 4xx will fail again identically.
+        if (response.statusCode < 500 && response.statusCode != 429) return response;
+      } catch (e) {
+        final text = e.toString();
+        final transient = text.contains('SocketException') ||
+            text.contains('TimeoutException') ||
+            text.contains('HttpException') ||
+            text.contains('Connection reset') ||
+            text.contains('Connection closed') ||
+            text.contains('Request timeout') ||
+            text.contains('HandshakeException');
+        if (!allowRetry || attempt > 0 || !transient) rethrow;
+      }
+      await Future.delayed(Duration(milliseconds: 600 * (attempt + 1)));
     }
   }
 
@@ -46,7 +63,7 @@ class BaseRepository {
       late http.Response response;
       switch (method) {
         case 'GET':
-          response = await _handleRequest(() => http.get(uri, headers: headers));
+          response = await _handleRequest(() => http.get(uri, headers: headers), allowRetry: true);
           break;
         case 'POST':
           response = await _handleRequest(() => http.post(uri, headers: headers, body: jsonEncode(body)));

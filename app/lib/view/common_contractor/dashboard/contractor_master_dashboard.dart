@@ -226,9 +226,12 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
         return;
       }
       final results = await Future.wait([
+        // Only this entity's team is rendered here, so ask the server for it
+        // instead of downloading every user in scope (that payload is what made
+        // the screen stall right after login on slow connections).
         ApiService.getContractsContractor(user.entityId!, contractType: 'station_cleaning'),
-        ApiService.getApprovedUsers(),
-        ApiService.getPendingUsers(),
+        ApiService.getApprovedUsers(entityId: user.entityId, limit: 100),
+        ApiService.getPendingUsers(entityId: user.entityId, limit: 100),
       ]);
       final contracts = (results[0] as List).cast<ContractModel>();
       final approved = (results[1] as List).cast<UserRegistrationModel>();

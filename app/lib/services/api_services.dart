@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:crm_train/model/billing_models.dart';
 import 'package:crm_train/model/cleaning_form_models.dart';
@@ -30,6 +31,57 @@ class ApiService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  static bool _isTransient(Object e, int? statusCode) {
+    if (statusCode != null) {
+      if (statusCode >= 500 || statusCode == 429 || statusCode == 408) return true;
+      if (statusCode >= 200 && statusCode < 400) return false;
+    }
+    final text = e.toString();
+    return text.contains('SocketException') ||
+        text.contains('TimeoutException') ||
+        text.contains('HttpException') ||
+        text.contains('Connection closed') ||
+        text.contains('Connection reset') ||
+        text.contains('Request timeout') ||
+        text.contains('HandshakeException') ||
+        text.contains('temporarily unavailable');
+  }
+
+  /// GET with a hard timeout and a single automatic retry.
+  ///
+  /// Reads that run right after login used to hang forever on a flaky mobile
+  /// connection (no timeout at all), which is what surfaced as the random
+  /// "connection problem"/endless spinner after tapping Sign In.
+  static Future<http.Response> getWithRetry(
+    Uri uri, {
+    Map<String, String>? headers,
+    int retries = 1,
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    Object? lastError;
+    int? lastStatus;
+    for (var attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        await Future.delayed(Duration(milliseconds: 600 * attempt));
+      }
+      try {
+        final response = await http.get(uri, headers: headers).timeout(
+              timeout,
+              onTimeout: () => throw TimeoutException('Request timeout'),
+            );
+        if (response.statusCode >= 200 && response.statusCode < 400) return response;
+        lastStatus = response.statusCode;
+        lastError = Exception('HTTP ${response.statusCode}');
+      } catch (e) {
+        lastError = e;
+      }
+      if (!_isTransient(lastError, lastStatus)) {
+        throw lastError ?? Exception('Request failed');
+      }
+    }
+    throw lastError ?? Exception('Request failed');
   }
 
   static String baseUrl = 'https://swatch-railway-4.onrender.com';
@@ -183,16 +235,18 @@ class ApiService {
     }
   }
 
-  static Future<List<UserRegistrationModel>> getPendingUsers() async {
+  static Future<List<UserRegistrationModel>> getPendingUsers({
+    String? entityId,
+    int? page,
+    int? limit,
+  }) async {
     try {
       final token = await getToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/admin/users?status=PENDING'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final uri = _userListUri(status: 'PENDING', entityId: entityId, page: page, limit: limit);
+      final response = await getWithRetry(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -226,16 +280,31 @@ class ApiService {
     }
   }
 
-  static Future<List<UserRegistrationModel>> getApprovedUsers() async {
+  static Uri _userListUri({
+    required String status,
+    String? entityId,
+    int? page,
+    int? limit,
+  }) {
+    final params = <String, String>{'status': status};
+    if (entityId != null && entityId.isNotEmpty) params['entityId'] = entityId;
+    if (page != null && page > 0) params['page'] = '$page';
+    if (limit != null && limit > 0) params['limit'] = '$limit';
+    return Uri.parse('$baseUrl/api/admin/users').replace(queryParameters: params);
+  }
+
+  static Future<List<UserRegistrationModel>> getApprovedUsers({
+    String? entityId,
+    int? page,
+    int? limit,
+  }) async {
     try {
       final token = await getToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/admin/users?status=APPROVED'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final uri = _userListUri(status: 'APPROVED', entityId: entityId, page: page, limit: limit);
+      final response = await getWithRetry(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -250,23 +319,25 @@ class ApiService {
             .toList();
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['error'] ?? 'Failed to fetch pending users');
+        throw Exception(error['error'] ?? 'Failed to fetch approved users');
       }
     } catch (e) {
-      throw Exception('Error fetching pending users: $e');
+      throw Exception('Error fetching approved users: $e');
     }
   }
 
-  static Future<List<UserRegistrationModel>> getRejectedUsers() async {
+  static Future<List<UserRegistrationModel>> getRejectedUsers({
+    String? entityId,
+    int? page,
+    int? limit,
+  }) async {
     try {
       final token = await getToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/admin/users?status=REJECTED'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final uri = _userListUri(status: 'REJECTED', entityId: entityId, page: page, limit: limit);
+      final response = await getWithRetry(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -281,11 +352,50 @@ class ApiService {
             .toList();
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['error'] ?? 'Failed to fetch pending users');
+        throw Exception(error['error'] ?? 'Failed to fetch rejected users');
       }
     } catch (e) {
-      throw Exception('Error fetching pending users: $e');
+      throw Exception('Error fetching rejected users: $e');
     }
+  }
+
+  /// Walks the paginated user list and concatenates the pages.
+  ///
+  /// Screens that genuinely need every user (Users tab) now pull it in small
+  /// chunks instead of one big response, so a dropped connection only loses the
+  /// page that failed (each page is retried once) rather than the whole list.
+  static Future<List<UserRegistrationModel>> getAllUsersByStatus(
+    String status, {
+    String? entityId,
+    int pageSize = 100,
+    int maxPages = 20,
+  }) async {
+    final token = await getToken();
+    final all = <UserRegistrationModel>[];
+    for (var page = 1; page <= maxPages; page++) {
+      final uri = _userListUri(
+        status: status,
+        entityId: entityId,
+        page: page,
+        limit: pageSize,
+      );
+      final response = await getWithRetry(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode != 200) break;
+      final data = jsonDecode(response.body);
+      final users = (data['users'] as List?) ?? [];
+      for (final u in users) {
+        try {
+          all.add(UserRegistrationModel.fromJson(Map<String, dynamic>.from(u)));
+        } catch (_) {
+          // Skip malformed entries instead of failing the whole page.
+        }
+      }
+      if (data['hasMore'] != true) break;
+    }
+    return all;
   }
 
   static Future<Map<String, dynamic>> approveUser(
@@ -811,7 +921,7 @@ class ApiService {
     final token = await getToken();
     String url = '$baseUrl/api/contracts/by-entity/$entityId';
     if (contractType != null) url += '?contractType=$contractType';
-    final response = await http.get(
+    final response = await getWithRetry(
       Uri.parse(url),
       headers: {
         'Content-Type': 'application/json',

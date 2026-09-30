@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:crm_train/helper/location_helper.dart';
 import 'package:crm_train/model/area_cleaning_models.dart';
 import 'package:crm_train/providers/auth_provider.dart';
 import 'package:crm_train/repositories/base_repository.dart';
@@ -72,44 +73,7 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen> {
     return {'url': url, 'file': file};
   }
 
-  Future<Position?> _captureGps() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return null;
-      }
-
-      try {
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      } catch (e) {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 15),
-          ),
-        );
-      } catch (e) {
-        return Position(
-          longitude: 0.0, latitude: 0.0,
-          timestamp: DateTime.now(),
-          accuracy: 0.0, altitude: 0.0, heading: 0.0, speed: 0.0,
-          speedAccuracy: 0.0, altitudeAccuracy: 0.0, headingAccuracy: 0.0,
-        );
-      }
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<Position?> _captureGps() async => captureGps();
 
   Future<void> _loadData() async {
     setState(() => _isLoadingData = true);

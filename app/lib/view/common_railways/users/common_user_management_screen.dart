@@ -65,9 +65,9 @@ class _CommonUserManagementScreenState extends State<CommonUserManagementScreen>
   Future<void> loadAllUsers({bool silent = false}) async {
     if (!silent) setState(() => _isLoading = true);
     try {
-      final pending = await ApiService.getPendingUsers();
-      final approved = await ApiService.getApprovedUsers();
-      final rejected = await ApiService.getRejectedUsers();
+      final pending = await ApiService.getAllUsersByStatus('PENDING');
+      final approved = await ApiService.getAllUsersByStatus('APPROVED');
+      final rejected = await ApiService.getAllUsersByStatus('REJECTED');
 
       setState(() {
         pendingUsers = pending;
