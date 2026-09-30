@@ -67,6 +67,7 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
   bool _midMarked = false;
   bool _endMarked = false;
   bool _attendanceLoading = false;
+  bool _midPromptHandled = false;
 
   // Tasks
   List<Map<String, dynamic>> _tasks = [];
@@ -212,14 +213,25 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
     return _isTaskWindowClosed(t);
   }
 
-  /// Task the supervisor can still be expected to work: not cancelled, not
-  /// already done, not flagged missed, and its start window is still open.
-  /// This is the denominator for both the mid-attendance half and the summary
-  /// gate — overdue/window-closed tasks can never be completed, so counting them
-  /// would make "half done" and "all done" unreachable.
+  /// Task the supervisor can still be expected to work on right now: not
+  /// cancelled, not already done, not flagged missed, and its start window is
+  /// still open. This is the summary gate blocker list — a task leaves it only
+  /// once it reaches a terminal state.
   bool _isTaskActionable(Map<String, dynamic> t) {
     final status = _taskStatus(t);
     if (const {'cancelled', 'missed', 'completed', 'approved'}.contains(status)) return false;
+    return !_isTaskWindowClosed(t);
+  }
+
+  /// Task that counts toward the mid-attendance "half done" denominator:
+  /// cancelled, railway-flagged missed, and unstarted window-expired tasks are
+  /// excluded because they can never be completed. Completed and approved tasks
+  /// ARE counted — they are the progress being measured. Mirrors
+  /// getTaskCompletion() in stationCleaningAttendanceService.js so the client
+  /// prompt and the server gate agree on the ratio.
+  bool _countsTowardMidRatio(Map<String, dynamic> t) {
+    final status = _taskStatus(t);
+    if (const {'cancelled', 'missed'}.contains(status)) return false;
     return !_isTaskWindowClosed(t);
   }
 
@@ -621,19 +633,19 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
 
   // ─── Task Assignment ─────────────────────────────────────────────────────
 
-  // Workable tasks = not cancelled, not railway-flagged missed, and whose 1h start
-  // window is still open. Overdue/window-closed tasks can never be completed, so
-  // counting them would make "half done" unreachable and the mid prompt would
-  // never fire. Done tasks stay in the count — they are half of the shift.
-  int get _workableTaskCount => _tasks.where(_isTaskActionable).length;
+  // Ratio tasks = cancelled / railway-flagged missed / unstarted window-expired
+  // tasks are dropped; everything else counts, including completed tasks. This
+  // matches the backend getTaskCompletion() denominator exactly.
+  int get _workableTaskCount => _tasks.where(_countsTowardMidRatio).length;
 
   bool get _hasCompletedHalf => _workableTaskCount > 0 && _completedCount >= (_workableTaskCount / 2).ceil();
 
   Future<void> _handleComplete(Map<String, dynamic> t) async {
-    // Half the workable tasks are done → ask for mid attendance once. Still allow
-    // the task to be completed afterwards so dismissing the prompt can't strand
-    // the remaining work.
-    if (!_midMarked && _hasCompletedHalf) {
+    // Half the ratio tasks are already done before this one was completed (the
+    // screen was resumed, or the previous prompt was dismissed). Ask once here so
+    // mid attendance is not silently skipped; _midPromptHandled stops a second
+    // prompt in _showCompleteSheet's onDone.
+    if (!_midMarked && !_midPromptHandled && _hasCompletedHalf) {
       await _promptMidAttendance();
       if (!mounted) return;
     }
@@ -641,7 +653,8 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
   }
 
   Future<void> _promptMidAttendance() async {
-    if (!mounted) return;
+    if (!mounted || _midPromptHandled) return;
+    _midPromptHandled = true;
     final markNow = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -841,6 +854,12 @@ class _SupervisorTaskScreenState extends State<SupervisorTaskScreen>
         onDone: () async {
           await _loadTasks();
           if (mounted) Navigator.pop(context);
+          // Ask for mid attendance as soon as the half mark is crossed, rather
+          // than waiting for the supervisor to tap the next complete button.
+          // _midPromptHandled keeps it to one prompt per shift.
+          if (mounted && !_midMarked && !_midPromptHandled && _hasCompletedHalf) {
+            await _promptMidAttendance();
+          }
         },
       ),
     );

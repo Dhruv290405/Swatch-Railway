@@ -106,7 +106,10 @@ class StationCleaningAttendanceService {
         const allTasks = [];
         taskSnap.forEach(doc => {
           const t = doc.data();
-          if (t.date !== todayIST) return;
+          // scheduledDate is the authoritative field the app reads; older docs
+          // may only carry date.
+          const taskDate = String(t.scheduledDate || t.date || '').trim();
+          if (taskDate !== todayIST) return;
           allTasks.push(t);
         });
 
@@ -155,14 +158,19 @@ class StationCleaningAttendanceService {
     if (isContractor || attendanceType !== 'start') {
       const { total, completedCount } = await getTaskCompletion();
       if (total === 0) {
-        throw new ValidationError(`You have no cleaning tasks scheduled today. Mark 'start' attendance only.`);
-      }
-      if (attendanceType === 'mid' && completedCount < Math.ceil(total / 2)) {
+        // Only START needs a task to exist. MID/END reaching total === 0 means
+        // every task was cancelled, railway-flagged missed, or its start window
+        // elapsed — all excluded from the ratio on purpose. Blocking here would
+        // make mid attendance (and therefore the shift summary) impossible for
+        // exactly the shifts the exclusion rules were written for.
+        if (attendanceType === 'start') {
+          throw new ValidationError(`You have no cleaning tasks scheduled today. Mark 'start' attendance only.`);
+        }
+      } else if (attendanceType === 'mid' && completedCount < Math.ceil(total / 2)) {
         throw new ValidationError(
           `MID attendance requires at least half your tasks (${Math.ceil(total / 2)} of ${total}) completed. Currently ${completedCount} completed.`
         );
-      }
-      if (attendanceType === 'end' && completedCount < total) {
+      } else if (attendanceType === 'end' && completedCount < total) {
         throw new ValidationError(`END attendance requires all ${total} tasks completed. Currently ${completedCount} completed.`);
       }
     }
