@@ -15,16 +15,6 @@ void navigateUser(BuildContext context, UserModel user) {
   // Worker). They keep that screen even when no contractType is set.
   const obhsRoles = {'CTS', 'JANITOR', 'ATTENDANT', 'WORKER'};
 
-  // Roles used by the OBHS conditional-cleaning module (contractType 'obhs'):
-  // contractor masters/admins/supervisors included.
-  const mccRoles = {
-    'CTS',
-    'CM', 'COMPANY_MASTER', 'CONTRACTOR_MASTER',
-    'CA', 'CONTRACTOR_ADMIN',
-    'CS', 'CONTRACTOR_SUPERVISOR',
-    'JANITOR', 'ATTENDANT', 'WORKER',
-  };
-
   const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
 
   if (user.contractType == 'mcc') {
@@ -32,13 +22,6 @@ void navigateUser(BuildContext context, UserModel user) {
       context,
       MaterialPageRoute(
         builder: (_) => MccRouter(user: user),
-      ),
-    );
-  } else if (user.contractType == 'obhs' && mccRoles.contains(role)) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ObhsMccRouter(user: user),
       ),
     );
   } else if (railwayWorkerRoles.contains(role)) {
