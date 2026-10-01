@@ -7,13 +7,32 @@ import 'api_services.dart';
 class AuthService {
   String baseUrl = ApiService.baseUrl;
 
-  static const Duration connectionTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  static const Duration connectionTimeout = Duration(seconds: 60);
+  static const Duration receiveTimeout = Duration(seconds: 60);
 
   Future<AuthResponse> _makeRequest({
     required String endpoint,
     required Map<String, dynamic> body,
+    bool retryOnTimeout = false,
   }) async {
+    final int maxAttempts = retryOnTimeout ? 2 : 1;
+
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      final AuthResponse result = await _post(endpoint, body);
+      if (result.errorType != ErrorType.timeout || attempt == maxAttempts - 1) {
+        return result;
+      }
+    }
+
+    return AuthResponse(
+      success: false,
+      message: 'Connection timeout. Please check your internet connection and try again.',
+      statusCode: 0,
+      errorType: ErrorType.timeout,
+    );
+  }
+
+  Future<AuthResponse> _post(String endpoint, Map<String, dynamic> body) async {
     try {
       final response = await http
           .post(
@@ -108,6 +127,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/verify-email-otp',
       body: {'email': email, 'otp': otp},
+      retryOnTimeout: true,
     );
   }
 
@@ -149,6 +169,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/verify-otp',
       body: {'phone': phone, 'otp': otp},
+      retryOnTimeout: true,
     );
   }
 
@@ -166,6 +187,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/login',
       body: {'email': email, 'password': password},
+      retryOnTimeout: true,
     );
   }
 
@@ -183,6 +205,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/loginWithMobile',
       body: {'mobile': mobile, 'password': password},
+      retryOnTimeout: true,
     );
   }
 
@@ -224,6 +247,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/forgot-password/verify-otp',
       body: {'mobile': mobile, 'otp': otp},
+      retryOnTimeout: true,
     );
   }
 
@@ -265,55 +289,65 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/forgot-password/email/verify-otp',
       body: {'email': email, 'otp': otp},
+      retryOnTimeout: true,
     );
   }
 
   Future<AuthResponse> changePassword(String currentPassword, String newPassword) async {
-    try {
-      final token = await ApiService.getToken();
-      if (token == null) {
-        return AuthResponse(
-          success: false,
-          message: 'You must be logged in to change password.',
-          statusCode: 401,
-          errorType: ErrorType.validation,
-        );
-      }
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/change-password'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        }),
-      ).timeout(connectionTimeout, onTimeout: () => throw TimeoutException('Request timeout'));
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      return AuthResponse.fromJson(responseData, response.statusCode);
-    } on SocketException catch (e) {
+    final token = await ApiService.getToken();
+    if (token == null) {
       return AuthResponse(
         success: false,
-        message: 'No internet connection.',
-        statusCode: 0,
-        errorType: ErrorType.noInternet,
-      );
-    } on TimeoutException catch (e) {
-      return AuthResponse(
-        success: false,
-        message: 'Connection timeout.',
-        statusCode: 0,
-        errorType: ErrorType.timeout,
-      );
-    } catch (e) {
-      return AuthResponse(
-        success: false,
-        message: 'Something went wrong: $e',
-        statusCode: 500,
-        errorType: ErrorType.unknown,
+        message: 'You must be logged in to change password.',
+        statusCode: 401,
+        errorType: ErrorType.validation,
       );
     }
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/auth/change-password'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'currentPassword': currentPassword,
+            'newPassword': newPassword,
+          }),
+        ).timeout(connectionTimeout, onTimeout: () => throw TimeoutException('Request timeout'));
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return AuthResponse.fromJson(responseData, response.statusCode);
+      } on SocketException catch (e) {
+        return AuthResponse(
+          success: false,
+          message: 'No internet connection.',
+          statusCode: 0,
+          errorType: ErrorType.noInternet,
+        );
+      } on TimeoutException catch (e) {
+        if (attempt == 0) continue;
+        return AuthResponse(
+          success: false,
+          message: 'Connection timeout.',
+          statusCode: 0,
+          errorType: ErrorType.timeout,
+        );
+      } catch (e) {
+        return AuthResponse(
+          success: false,
+          message: 'Something went wrong: $e',
+          statusCode: 500,
+          errorType: ErrorType.unknown,
+        );
+      }
+    }
+    return AuthResponse(
+      success: false,
+      message: 'Connection timeout.',
+      statusCode: 0,
+      errorType: ErrorType.timeout,
+    );
   }
 
   Future<AuthResponse> resetPassword(String newPassword, String resetToken) async {
@@ -338,6 +372,7 @@ class AuthService {
     return await _makeRequest(
       endpoint: '/api/auth/forgot-password/reset',
       body: {'newPassword': newPassword, 'resetToken': resetToken},
+      retryOnTimeout: true,
     );
   }
 
