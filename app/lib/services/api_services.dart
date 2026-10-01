@@ -4375,7 +4375,13 @@ class ApiService {
       final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['divisions'] ?? []);
+        final raw = data['divisions'];
+        if (raw is! List) return [];
+        return raw.map((item) {
+          final map = Map<String, dynamic>.from(item as Map);
+          map['divisionId'] = map['id'] ?? map['uid'] ?? map['divisionId'];
+          return map;
+        }).toList();
       }
       throw Exception('Failed to fetch divisions');
     } catch (e) {

@@ -65,7 +65,11 @@ class _DivisionManagementScreenState extends State<DivisionManagementScreen> {
                 if (nameController.text.trim().isEmpty) return;
                 try {
                   if (isEdit) {
-                    await ApiService.updateDivision(division!['divisionId'], name: nameController.text.trim(), zone: selectedZone, code: codeController.text.trim());
+                    final id = division['divisionId'] as String?;
+                    if (id == null || id.isEmpty) {
+                      throw Exception('Division id missing');
+                    }
+                    await ApiService.updateDivision(id, name: nameController.text.trim(), zone: selectedZone, code: codeController.text.trim());
                   } else {
                     await ApiService.createDivision(nameController.text.trim(), selectedZone, code: codeController.text.trim());
                   }
@@ -101,7 +105,11 @@ class _DivisionManagementScreenState extends State<DivisionManagementScreen> {
     );
     if (confirmed != true) return;
     try {
-      await ApiService.deleteDivision(division['divisionId']);
+      final id = division['divisionId'] as String?;
+      if (id == null || id.isEmpty) {
+        throw Exception('Division id missing');
+      }
+      await ApiService.deleteDivision(id);
       _loadDivisions();
     } catch (e) {
       if (!mounted) return;
