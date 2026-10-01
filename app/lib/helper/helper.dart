@@ -11,14 +11,18 @@ void navigateUser(BuildContext context, UserModel user) {
   // in the stored role ("Janitor", "contractor master", ...) never matter.
   final role = user.role.toUpperCase().replaceAll(' ', '_');
 
+  // OBHS roles historically served by ObhsMccRouter (CTS, Janitor, Attendant,
+  // Worker). They keep that screen even when no contractType is set.
+  const obhsRoles = {'CTS', 'JANITOR', 'ATTENDANT', 'WORKER'};
+
+  // Roles used by the OBHS conditional-cleaning module (contractType 'obhs'):
+  // contractor masters/admins/supervisors included.
   const mccRoles = {
     'CTS',
     'CM', 'COMPANY_MASTER', 'CONTRACTOR_MASTER',
     'CA', 'CONTRACTOR_ADMIN',
     'CS', 'CONTRACTOR_SUPERVISOR',
-    'JANITOR',
-    'ATTENDANT',
-    'WORKER',
+    'JANITOR', 'ATTENDANT', 'WORKER',
   };
 
   const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
@@ -30,7 +34,7 @@ void navigateUser(BuildContext context, UserModel user) {
         builder: (_) => MccRouter(user: user),
       ),
     );
-  } else if (mccRoles.contains(role)) {
+  } else if (user.contractType == 'obhs' && mccRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -42,6 +46,13 @@ void navigateUser(BuildContext context, UserModel user) {
       context,
       MaterialPageRoute(
         builder: (_) => WorkerMobileNavBar(user: user),
+      ),
+    );
+  } else if (obhsRoles.contains(role)) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ObhsMccRouter(user: user),
       ),
     );
   } else {

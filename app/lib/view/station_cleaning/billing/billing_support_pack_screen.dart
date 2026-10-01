@@ -29,6 +29,8 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
   String? _errorMessage;
   final TextEditingController _rejectionReasonCtrl = TextEditingController();
   String? _resolvedContractId;
+  bool _busy = false;
+  String _busyMessage = '';
 
   @override
   void initState() {
@@ -144,12 +146,14 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
   }
 
   Future<void> _updateComplianceCheckbox(String key, bool val) async {
-    if (_billingPack == null) return;
+    if (_billingPack == null || _busy) return;
     final updatedChecklist = Map<String, dynamic>.from(_billingPack!.complianceChecklist);
     updatedChecklist[key] = val;
     try {
-      await StationBillingRepository.updateCompliance(_billingPack!.uid, updatedChecklist);
-      _fetchOrGenerate();
+      await _runBusy('Saving compliance checklist...', () async {
+        await StationBillingRepository.updateCompliance(_billingPack!.uid, updatedChecklist);
+        await _fetchOrGenerate();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,10 +164,12 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
   }
 
   Future<void> _submitPack() async {
-    if (_billingPack == null) return;
+    if (_billingPack == null || _busy) return;
     try {
-      await StationBillingRepository.submit(_billingPack!.uid);
-      _fetchOrGenerate();
+      await _runBusy('Submitting billing pack for review...', () async {
+        await StationBillingRepository.submit(_billingPack!.uid);
+        await _fetchOrGenerate();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -174,10 +180,12 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
   }
 
   Future<void> _approvePack() async {
-    if (_billingPack == null) return;
+    if (_billingPack == null || _busy) return;
     try {
-      await StationBillingRepository.approve(_billingPack!.uid);
-      _fetchOrGenerate();
+      await _runBusy('Approving billing pack...', () async {
+        await StationBillingRepository.approve(_billingPack!.uid);
+        await _fetchOrGenerate();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -188,10 +196,12 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
   }
 
   Future<void> _rejectPack() async {
-    if (_billingPack == null) return;
+    if (_billingPack == null || _busy) return;
     try {
-      await StationBillingRepository.reject(_billingPack!.uid, _rejectionReasonCtrl.text.trim());
-      _fetchOrGenerate();
+      await _runBusy('Rejecting billing pack...', () async {
+        await StationBillingRepository.reject(_billingPack!.uid, _rejectionReasonCtrl.text.trim());
+        await _fetchOrGenerate();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -218,14 +228,31 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
     return (perms[r] ?? <String>{}).contains(permission);
   }
 
-  Future<void> _downloadPdf() async {
-    if (_billingPack == null) return;
+  Future<void> _runBusy(String message, Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _busyMessage = message;
+    });
     try {
-      final pdfBytes = await PDFReportService.generateStationBillingPdf(_billingPack!);
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: 'BillingPack_${_billingPack!.contractNumber}_${_billingPack!.month}_${_billingPack!.year}.pdf',
-      );
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_billingPack == null || _busy) return;
+    try {
+      await _runBusy('Generating PDF, please wait...', () async {
+        // Let the progress overlay render before the heavy PDF work starts.
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        final pdfBytes = await PDFReportService.generateStationBillingPdf(_billingPack!);
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: 'BillingPack_${_billingPack!.contractNumber}_${_billingPack!.month}_${_billingPack!.year}.pdf',
+        );
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -284,13 +311,15 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
     );
     if (recorded == null) return;
     try {
-      await StationBillingRepository.recordPayment(
-        _billingPack!.uid,
-        amount: double.parse(recorded['amount']!),
-        mode: recorded['mode']!,
-        reference: recorded['reference'],
-      );
-      _fetchOrGenerate();
+      await _runBusy('Recording payment...', () async {
+        await StationBillingRepository.recordPayment(
+          _billingPack!.uid,
+          amount: double.parse(recorded['amount']!),
+          mode: recorded['mode']!,
+          reference: recorded['reference'],
+        );
+        await _fetchOrGenerate();
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Payment recorded'), backgroundColor: kSuccessGreen),
@@ -352,7 +381,9 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
         title: const Text('Billing Support Pack', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: kRailwayBlue,
@@ -362,7 +393,7 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
             IconButton(
               icon: const Icon(Icons.download, color: Colors.white),
               tooltip: 'Download PDF',
-              onPressed: _downloadPdf,
+              onPressed: _busy ? null : _downloadPdf,
             ),
         ],
       ),
@@ -458,6 +489,34 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
           ),
         ],
       ),
+    ),
+        if (_busy) ...[
+          const Positioned.fill(
+            child: ModalBarrier(dismissible: false, color: Colors.black54),
+          ),
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(_busyMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -931,7 +990,7 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
         width: double.infinity,
         height: 48,
         child: ElevatedButton.icon(
-          onPressed: _submitPack,
+          onPressed: _busy ? null : _submitPack,
           icon: const Icon(Icons.send),
           style: ElevatedButton.styleFrom(backgroundColor: kRailwayBlue, foregroundColor: Colors.white),
           label: const Text('Submit Pack for Review'),
@@ -945,7 +1004,7 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
             child: SizedBox(
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: _approvePack,
+                onPressed: _busy ? null : _approvePack,
                 icon: const Icon(Icons.check_circle),
                 style: ElevatedButton.styleFrom(backgroundColor: kSuccessGreen, foregroundColor: Colors.white),
                 label: const Text('Approve'),
@@ -957,9 +1016,11 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
             child: SizedBox(
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  _rejectionReasonCtrl.clear();
-                  showDialog(
+                onPressed: _busy
+                  ? null
+                  : () {
+                      _rejectionReasonCtrl.clear();
+                      showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Reject Billing Pack'),
@@ -999,7 +1060,7 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
         width: double.infinity,
         height: 48,
         child: ElevatedButton.icon(
-          onPressed: _recordPayment,
+          onPressed: _busy ? null : _recordPayment,
           icon: const Icon(Icons.payment),
           style: ElevatedButton.styleFrom(backgroundColor: kSuccessGreen, foregroundColor: Colors.white),
           label: const Text('Record Payment'),
