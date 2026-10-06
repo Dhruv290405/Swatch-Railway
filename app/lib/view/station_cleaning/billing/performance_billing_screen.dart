@@ -101,7 +101,7 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
       'RAILWAY_MASTER': {'VIEW'},
       'ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
       'RAILWAY_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
-      'CONTRACTOR_MASTER': {'VIEW'},
+      'CONTRACTOR_MASTER': {'VIEW', 'CONFIGURE'},
       'CONTRACTOR_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
       'CONTRACTOR_SUPERVISOR': {'VIEW'},
     };
@@ -192,7 +192,7 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
         backgroundColor: kRailwayBlue,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_resolvedContractId != null && !_resolvedContractId!.isEmpty && _can('MANAGE'))
+          if (_resolvedContractId != null && !_resolvedContractId!.isEmpty && (_can('MANAGE') || _can('CONFIGURE')))
             IconButton(
               icon: const Icon(Icons.tune, color: Colors.white),
               tooltip: 'Billing Configuration',

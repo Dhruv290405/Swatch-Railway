@@ -15,6 +15,21 @@ export function requirePermission(permission) {
   };
 }
 
+export function requireAnyPermission(...permissions) {
+  return (req, res, next) => {
+    const role = (req.user?.role || '').toUpperCase();
+    const normalizedRole = role.replace(/\s+/g, '_');
+    const rolePermissions = ROLE_PERMISSIONS[normalizedRole] || [];
+
+    const allowed = permissions.filter((p) => rolePermissions.includes(p));
+    if (allowed.length === 0) {
+      console.log(`[AuthZ] Failed any-of ${permissions.join(', ')} for role "${role}" (normalized: "${normalizedRole}"). Permissions:`, rolePermissions);
+      throw new ForbiddenError(`Insufficient permissions. Required one of: ${permissions.join(', ')}`);
+    }
+    next();
+  };
+}
+
 export function requireRole(...allowedRoles) {
   return (req, res, next) => {
     const userRole = (req.user?.role || '').toUpperCase();

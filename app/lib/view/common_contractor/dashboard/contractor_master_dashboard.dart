@@ -31,6 +31,7 @@ import '../../common_railways/contracts/common_contracts_screen.dart';
 import '../../common_railways/divisions/division_management_screen.dart';
 import '../../common_railways/audit/audit_log_screen.dart';
 import '../../common_railways/billing/billing_dashboard_screen.dart';
+import '../../station_cleaning_complete/station_cleaning_main_screen.dart';
 import '../../common_railways/cleaning_forms/cleaning_form_dashboard.dart';
 import '../../station_cleaning_screens/station_cleaning_runs_list_screen.dart';
 import '../../common_railways/station_management/station_dashboard_screen.dart';
@@ -494,6 +495,7 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
         "roles": ["Contractor Master", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"],
         "contractTypes": ["station_cleaning"],
         "children": [
+          {"title": "Module Hub", "route": "sc_main"},
           {"title": "Area Management", "route": "sc_areas"},
           {"title": "Generate Tasks", "route": "sc_generate_tasks"},
           {"title": "Passenger Feedback", "route": "sc_passenger_feedback"},
@@ -681,6 +683,9 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
         break;
       case "station_cleaning_runs":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const StationCleaningRunsListScreen()));
+        break;
+      case "sc_main":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const StationCleaningMainScreen()));
         break;
       case "sc_areas":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const AreaListScreen()));
