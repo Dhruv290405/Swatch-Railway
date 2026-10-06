@@ -84,7 +84,7 @@ class ApiService {
     throw lastError ?? Exception('Request failed');
   }
 
-  static String baseUrl = 'https://swatch-railway-4.onrender.com';
+  static String baseUrl = 'https://swatch-railway-0zer.onrender.com';
   static void setBaseUrl(String url) { baseUrl = url; }
 
   static Future<String?> getToken() async {

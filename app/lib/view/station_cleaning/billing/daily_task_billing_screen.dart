@@ -55,12 +55,12 @@ class _DailyTaskBillingScreenState extends State<DailyTaskBillingScreen> {
   bool _can(String action) {
     final role = (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ?? '').toUpperCase().replaceAll(' ', '_');
     const perms = {
-      'SUPER_ADMIN': {'VIEW', 'GENERATE', 'MANAGE'},
-      'COMPANY_MASTER': {'VIEW', 'GENERATE', 'MANAGE'},
+      'SUPER_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE'},
+      'COMPANY_MASTER': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE'},
       'RAILWAY_MASTER': {'VIEW'},
-      'ADMIN': {'VIEW', 'GENERATE', 'MANAGE'},
-      'RAILWAY_ADMIN': {'VIEW', 'GENERATE', 'MANAGE'},
-      'CONTRACTOR_MASTER': {'VIEW'},
+      'ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE'},
+      'RAILWAY_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE'},
+      'CONTRACTOR_MASTER': {'VIEW', 'CONFIGURE'},
       'CONTRACTOR_ADMIN': {'VIEW', 'GENERATE', 'MANAGE'},
       'CONTRACTOR_SUPERVISOR': {'VIEW'},
     };
@@ -597,8 +597,10 @@ class _DailyTaskBillingScreenState extends State<DailyTaskBillingScreen> {
                     _buildAreaTableCard(b),
                   ],
                   const SizedBox(height: 14),
-                  _buildAreaRatesRow(),
-                  const SizedBox(height: 14),
+                  if (_can('CONFIGURE')) ...[
+                    _buildAreaRatesRow(),
+                    const SizedBox(height: 14),
+                  ],
                   _buildReportCartCard(),
                   const SizedBox(height: 14),
                   if (_rangeMode && _rangeData != null && _rangeData!.bills.isNotEmpty) ...[

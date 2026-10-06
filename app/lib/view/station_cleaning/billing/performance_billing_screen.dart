@@ -96,11 +96,11 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
     if (user == null) return false;
     final r = user.role.toUpperCase().replaceAll(' ', '_');
     const perms = {
-      'SUPER_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
-      'COMPANY_MASTER': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
+      'SUPER_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE', 'APPROVE', 'PAY'},
+      'COMPANY_MASTER': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE', 'APPROVE', 'PAY'},
       'RAILWAY_MASTER': {'VIEW'},
-      'ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
-      'RAILWAY_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
+      'ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE', 'APPROVE', 'PAY'},
+      'RAILWAY_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'CONFIGURE', 'APPROVE', 'PAY'},
       'CONTRACTOR_MASTER': {'VIEW', 'CONFIGURE'},
       'CONTRACTOR_ADMIN': {'VIEW', 'GENERATE', 'MANAGE', 'APPROVE', 'PAY'},
       'CONTRACTOR_SUPERVISOR': {'VIEW'},
@@ -192,7 +192,7 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
         backgroundColor: kRailwayBlue,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_resolvedContractId != null && !_resolvedContractId!.isEmpty && (_can('MANAGE') || _can('CONFIGURE')))
+          if (_resolvedContractId != null && !_resolvedContractId!.isEmpty && _can('CONFIGURE'))
             IconButton(
               icon: const Icon(Icons.tune, color: Colors.white),
               tooltip: 'Billing Configuration',

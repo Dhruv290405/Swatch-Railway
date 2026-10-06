@@ -121,6 +121,15 @@ class _StationCleaningHubScreenState extends State<StationCleaningHubScreen> {
   Widget build(BuildContext context) {
     final role = Provider.of<AuthProvider>(context).currentUser?.role ?? '';
 
+    final billingCards = <Widget>[
+      _moduleCard(context, Icons.edit_document, 'Billing', Colors.deepOrange, () => _openBilling(context)),
+      if (role.toUpperCase().replaceAll(' ', '_') != 'CONTRACTOR_MASTER')
+        _moduleCard(context, Icons.calendar_month, 'Daily Billing', Colors.teal.shade700, () => _openDailyBilling(context)),
+      _moduleCard(context, Icons.payments, 'Performance Billing', Colors.redAccent, () => _openPerformanceBilling(context)),
+      if (role.toUpperCase().replaceAll(' ', '_') != 'CONTRACTOR_ADMIN')
+        _moduleCard(context, Icons.currency_rupee, 'Area Rates & Weightage', Colors.brown, () => _openAreaRates(context)),
+    ];
+
     final sections = <(String, IconData, List<Widget>)>[
       (
         'Operations',
@@ -136,12 +145,7 @@ class _StationCleaningHubScreenState extends State<StationCleaningHubScreen> {
       (
         'Billing & Rates',
         Icons.receipt_long,
-        [
-          _moduleCard(context, Icons.edit_document, 'Billing', Colors.deepOrange, () => _openBilling(context)),
-          _moduleCard(context, Icons.calendar_month, 'Daily Billing', Colors.teal.shade700, () => _openDailyBilling(context)),
-          _moduleCard(context, Icons.payments, 'Performance Billing', Colors.redAccent, () => _openPerformanceBilling(context)),
-          _moduleCard(context, Icons.currency_rupee, 'Area Rates & Weightage', Colors.brown, () => _openAreaRates(context)),
-        ],
+        billingCards,
       ),
       (
         'Records & Support',

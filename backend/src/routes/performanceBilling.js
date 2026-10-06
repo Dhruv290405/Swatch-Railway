@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { requirePermission, requireAnyPermission, requireStationAccess } from '../middleware/authorization.js';
+import { requirePermission, requireStationAccess } from '../middleware/authorization.js';
 import { PERMISSIONS } from '../permissions/roles.js';
 import * as performanceBilling from '../controllers/performanceBillingController.js';
 
@@ -8,7 +8,7 @@ const router = Router();
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 router.get('/api/performance-billing/config/:contractId', verifyToken, requirePermission(PERMISSIONS.VIEW_BILLING), performanceBilling.getConfig);
-router.put('/api/performance-billing/config/:contractId', verifyToken, requireAnyPermission(PERMISSIONS.MANAGE_BILLING, PERMISSIONS.CONFIGURE_BILLING), performanceBilling.saveConfig);
+router.put('/api/performance-billing/config/:contractId', verifyToken, requirePermission(PERMISSIONS.CONFIGURE_BILLING), performanceBilling.saveConfig);
 
 // ─── Scorecard (live computation, read-only) ─────────────────────────────────
 router.get('/api/performance-billing/scorecard', verifyToken, requirePermission(PERMISSIONS.VIEW_BILLING), requireStationAccess, performanceBilling.scorecard);

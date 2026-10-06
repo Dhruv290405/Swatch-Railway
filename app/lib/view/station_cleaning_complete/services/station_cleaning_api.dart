@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StationCleaningApi {
-  static const String baseUrl = 'https://swatch-railway-4.onrender.com';
+  static const String baseUrl = 'https://swatch-railway-0zer.onrender.com';
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

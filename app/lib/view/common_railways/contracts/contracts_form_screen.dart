@@ -9,7 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../model/contracts_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../utills/validators.dart';
-import '../widgets/approve_entity_dropdown.dart';
+
 import '../widgets/rolevise_dropdowns.dart';
 
 
@@ -36,7 +36,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   TextEditingController repIdNumberController = TextEditingController();
   TextEditingController contractValueController = TextEditingController();
 
-  String? selectedEntity;
   String? selectedZone;
   String? selectedDivision;
   String? selectedDepot;
@@ -109,7 +108,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
     contractValueController.text = (c.contractValue ?? 0).toStringAsFixed(0);
     contractNameController.text = c.contractName ?? '';
     remarksController.text = c.remarks ?? '';
-    selectedEntity = c.entityId;
     selectedZone = c.zone;
     selectedDivision = c.division;
     selectedDepot = c.depot;
@@ -192,23 +190,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                           "Enter contract name",
                           contractNameController,
                           enabled: !isEditMode,
-                        ),
-                        const Text('Select Entity',
-                            style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        AbsorbPointer(
-                          absorbing: isEditMode,
-                          child: Opacity(
-                            opacity: isEditMode ? 0.5 : 1.0,
-                            child: ApprovedEntityDropdown(
-                              initialValue: selectedEntity,
-                              onSelected: (name) {
-                                setState(() {
-                                  selectedEntity = name;
-                                });
-                              },
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -994,10 +975,6 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         _showErrorSnackBar("Please provide Contract Number and Contract Name");
         return;
       }
-      if (selectedEntity == null) {
-        _showErrorSnackBar("Please select an entity");
-        return;
-      }
       if (selectedZone == null) {
         _showErrorSnackBar("Please select a zone");
         return;
@@ -1043,11 +1020,16 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         String formattedStartDate = startDate!.toIso8601String();
         String formattedEndDate = endDate!.toIso8601String();
         String workCategoriesString = selectedWorkCategories.join(',');
+        final userEntityId = Provider.of<AuthProvider>(context, listen: false).currentUser?.entityId;
+        if (userEntityId == null || userEntityId.isEmpty) {
+          _showErrorSnackBar("Your account is not linked to an entity");
+          return;
+        }
 
         response = await ApiService.createContract(
           contractNumber: contractNoController.text,
           contractName: contractNameController.text,
-          entityId: selectedEntity!,
+          entityId: userEntityId,
           zone: selectedZone!,
           division: selectedDivision,
           depot: selectedDepot,
