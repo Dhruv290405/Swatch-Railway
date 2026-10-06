@@ -123,6 +123,12 @@ app.get('/station-feedback', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 's
 
 app.get('/', (req, res) => res.send('Swachh Railways API is running.'));
 
+// Health endpoints must live BEFORE the route stack: wildcard routers below
+// (stationCleaning/stationReport router.all('*', verifyToken)) would otherwise
+// 401 every unauthenticated probe, failing orchestrator health checks.
+app.get('/api/health', (req, res) => res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() }));
+
 // Mount all route modules
 app.use(authRoutes);                              // /api/auth/*
 app.use(usersRoutes);                             // /api/users/*
