@@ -1,3 +1,8 @@
+String _asString(dynamic value) {
+  if (value == null) return '';
+  return value is String ? value : value.toString();
+}
+
 class PettyRepairModel {
   final String id;
   final String runInstanceId;
@@ -29,10 +34,10 @@ class PettyRepairModel {
     return PettyRepairModel(
       id: json['id'] as String? ?? '',
       runInstanceId: json['runInstanceId'] as String? ?? '',
-      coachNo: json['coachNo'] as String? ?? '',
-      inspectionTime: json['inspectionTime'] as String? ?? '',
+      coachNo: _asString(json['coachNo']),
+      inspectionTime: _asString(json['inspectionTime']),
       items: (json['items'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, v as String)) ??
+              ?.map((k, v) => MapEntry(k, _asString(v))) ??
           {},
       isEscalated: json['isEscalated'] as bool? ?? false,
       escalatedTo: json['escalatedTo'] as String?,

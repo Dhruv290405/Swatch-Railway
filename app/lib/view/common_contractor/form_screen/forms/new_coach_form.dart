@@ -45,6 +45,8 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
   String? _userRole;
   String? _selectedZone;
   String? _selectedDivision;
+  final TextEditingController _divisionController = TextEditingController();
+  bool _divisionEdited = false;
 
 
 
@@ -93,17 +95,33 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
         throw Exception('No contracts found');
       }
 
+      // Prefer an active contract whose work categories allow coach cleaning —
+      // the backend rejects the form otherwise ("This Contract does not allow
+      // Coach Cleaning work."). Fall back to the first contract only if no
+      // category-specific match exists.
+      final eligible = contractsList.where((c) {
+        final cats = (c.workCategories ?? '').toLowerCase();
+        final type = (c.contractType ?? '').toLowerCase();
+        return cats.contains('coach') || type == 'coach';
+      }).toList();
+      final activeEligible = eligible.where((c) => c.isActive == true).toList();
+      final pool = activeEligible.isNotEmpty
+          ? activeEligible
+          : (eligible.isNotEmpty ? eligible : contractsList);
+
       // Take first contract ID only (API expects single ID, not comma-separated)
-      contractUidString = contractsList.first.uid.toString();
+      contractUidString = pool.first.uid.toString();
 
       print("Contract ID for API: $contractUidString");
 
       setState(() => isLoadingContracts = false);
     } catch (e) {
       setState(() => isLoadingContracts = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error loading contracts: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error loading contracts: $e")),
+        );
+      }
     }
   }
 
@@ -509,6 +527,11 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
       _showSnack('Please select a train');
       return;
     }
+    if (contractUidString.trim().isEmpty) {
+      _showSnack(
+          'No contract linked to your account. Contact your administrator to link a Coach Cleaning contract, then reopen this form.');
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -547,7 +570,9 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
 
       Map<String, String> submittedTo = {
         'railwayEmployeeId': _selectedSupervisor!.uid,
-        'division': _selectedSupervisor!.division,
+        'division': _divisionController.text.trim().isNotEmpty
+            ? _divisionController.text.trim()
+            : (_selectedSupervisor!.division ?? ''),
         'depot': _selectedSupervisor!.depot ?? '',
       };
 
@@ -774,6 +799,7 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
     for (final node in _chemicalFocusNodes) {
       node.dispose();
     }
+    _divisionController.dispose();
 
     super.dispose();
   }
@@ -1718,7 +1744,13 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
                 ),
                 value: _selectedSupervisor,
                 onChanged: (v) {
-                  setState(() => _selectedSupervisor = v);
+                  setState(() {
+                    _selectedSupervisor = v;
+                    // Prefill division unless the user typed one themselves.
+                    if (!_divisionEdited) {
+                      _divisionController.text = v?.division ?? '';
+                    }
+                  });
                 },
                 items: _supervisors
                     .map(
@@ -1736,21 +1768,22 @@ class _NewCoachFormScreenState extends State<NewCoachFormScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
               TextFormField(
-                readOnly: true,
+                // Editable: the field is prefilled from the selected supervisor
+                // but the user can correct it before submitting.
                 decoration: InputDecoration(
-                  hintText: 'Auto populated Division',
+                  hintText: 'Division',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                controller: TextEditingController(
-                    text: _selectedSupervisor?.division ?? ''),
+                controller: _divisionController,
+                onChanged: (_) => _divisionEdited = true,
               ),
             ],
 
             const SizedBox(height: 5),
             const Text(
-              'Auto-populated from your assignment',
+              'Prefilled from your assignment — edit if needed',
               style: TextStyle(color: Colors.blue, fontSize: 13),
             ),
 

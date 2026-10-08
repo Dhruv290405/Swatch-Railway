@@ -188,10 +188,22 @@ class CTSFormController extends GetxController {
         throw Exception('No contracts found');
       }
 
-      contractUidString.value = contractsList.first.uid.toString();
+      // Prefer an active contract that covers CTS work — the backend rejects
+      // the form otherwise.
+      final eligible = contractsList.where((c) {
+        final cats = (c.workCategories ?? '').toLowerCase();
+        final type = (c.contractType ?? '').toLowerCase();
+        return cats.contains('cts') || type == 'cts';
+      }).toList();
+      final activeEligible = eligible.where((c) => c.isActive == true).toList();
+      final pool = activeEligible.isNotEmpty
+          ? activeEligible
+          : (eligible.isNotEmpty ? eligible : contractsList);
 
-      if (contractsList.isNotEmpty && contractsList.first.startDate != null) {
-        agreementDate.value = contractsList.first.startDate!;
+      contractUidString.value = pool.first.uid.toString();
+
+      if (pool.first.startDate != null) {
+        agreementDate.value = pool.first.startDate!;
       }
     } catch (e) {
       debugPrint('Failed to load contracts: $e');
@@ -702,6 +714,10 @@ class CTSFormController extends GetxController {
           notes: notesController.text.trim(),
           submittedTo: {
             'railwayEmployeeId': selectedSupervisor.value!.uid,
+            'division': (selectedDivision.value ?? '').trim().isNotEmpty
+                ? selectedDivision.value!.trim()
+                : (selectedSupervisor.value?.division ?? ''),
+            'depot': selectedSupervisor.value?.depot ?? '',
           },
           signature: {
             'name': signedBy.value!,

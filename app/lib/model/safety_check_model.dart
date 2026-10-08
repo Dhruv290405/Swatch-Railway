@@ -1,7 +1,23 @@
 class SafetyCheckModel {
   final String id;
   final String runInstanceId;
+  final String coachNo;
   final DateTime scheduledTime;
+
+  static DateTime _parseTime(dynamic value) {
+    if (value == null || value is! String || value.isEmpty) {
+      return DateTime.now();
+    }
+    final full = DateTime.tryParse(value);
+    if (full != null) return full;
+    // Backend seeds time slots like "06:00" instead of a full ISO timestamp.
+    final parts = value.split(':');
+    final hour = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+    final minute = int.tryParse(parts.length > 1 ? parts[1] : '');
+    if (hour == null) return DateTime.now();
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute ?? 0);
+  }
   final String fireExtinguisherStatus;
   final String fsdsStatus;
   final String cctvStatus;
@@ -15,6 +31,7 @@ class SafetyCheckModel {
   SafetyCheckModel({
     required this.id,
     required this.runInstanceId,
+    this.coachNo = '',
     required this.scheduledTime,
     this.fireExtinguisherStatus = 'ok',
     this.fsdsStatus = 'ok',
@@ -31,9 +48,12 @@ class SafetyCheckModel {
     return SafetyCheckModel(
       id: json['id'] as String? ?? '',
       runInstanceId: json['runInstanceId'] as String? ?? '',
-      scheduledTime: json['scheduledTime'] != null
-          ? DateTime.parse(json['scheduledTime'] as String)
-          : DateTime.now(),
+      coachNo: json['coachNo'] == null
+          ? ''
+          : (json['coachNo'] is String
+              ? json['coachNo'] as String
+              : json['coachNo'].toString()),
+      scheduledTime: _parseTime(json['scheduledTime']),
       fireExtinguisherStatus:
           json['fireExtinguisherStatus'] as String? ?? 'ok',
       fsdsStatus: json['fsdsStatus'] as String? ?? 'ok',
@@ -58,8 +78,10 @@ class SafetyCheckModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'checkId': id,
       'id': id,
       'runInstanceId': runInstanceId,
+      'coachNo': coachNo,
       'scheduledTime': scheduledTime.toIso8601String(),
       'fireExtinguisherStatus': fireExtinguisherStatus,
       'fsdsStatus': fsdsStatus,

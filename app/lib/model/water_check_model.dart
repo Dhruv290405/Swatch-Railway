@@ -1,3 +1,8 @@
+String _asString(dynamic value) {
+  if (value == null) return '';
+  return value is String ? value : value.toString();
+}
+
 class WaterCheckModel {
   final String id;
   final String runInstanceId;
@@ -27,7 +32,7 @@ class WaterCheckModel {
     return WaterCheckModel(
       id: json['id'] as String? ?? '',
       runInstanceId: json['runInstanceId'] as String? ?? '',
-      coachNo: json['coachNo'] as String? ?? '',
+      coachNo: _asString(json['coachNo']),
       checkTime: json['checkTime'] as String? ?? '',
       checkDate: json['checkDate'] as String? ?? '',
       waterStatus: json['waterStatus'] as String? ?? 'empty',

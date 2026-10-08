@@ -137,25 +137,44 @@ class _ObhsPettyRepairsScreenState extends State<ObhsPettyRepairsScreen> {
       ),
     );
     if (target == null || target.isEmpty) return;
+    if (!mounted) return;
+    // Block double-taps while the request is in flight, and guarantee the
+    // dialog is dismissed even if the call throws — otherwise the screen
+    // looks frozen and the back button stops responding.
+    final nav = Navigator.of(context, rootNavigator: true);
+    nav.push<void>(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) =>
+            const ColoredBox(color: Colors.black26, child: Center(child: CircularProgressIndicator())),
+      ),
+    );
+    String? failure;
     try {
       await RepairRepository.escalateRepair(repair.id, escalatedTo: target);
-      if (!mounted) return;
+    } catch (e) {
+      failure = e.toString().replaceAll('Exception: ', '');
+    } finally {
+      if (nav.canPop()) nav.pop();
+    }
+    if (failure != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure), backgroundColor: kErrorRed),
+        );
+      }
+      return;
+    }
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Escalated'),
           backgroundColor: kSuccessGreen,
         ),
       );
-      await _loadRepairs(_runId!);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: kErrorRed,
-        ),
-      );
     }
+    await _loadRepairs(_runId!);
   }
 
   @override

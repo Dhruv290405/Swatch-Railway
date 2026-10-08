@@ -299,7 +299,25 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
   }
 
   Future<void> submitForm({bool stayOnScreen = false}) async {
-    if (!allCoachesComplete()) return;
+    if (!allCoachesComplete()) {
+      // Tell the user which coaches are incomplete instead of silently
+      // doing nothing when the submit button is tapped.
+      final pending = coaches
+          .where((c) => !isCoachComplete(c))
+          .map((c) => c.displayNo)
+          .join(', ');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(pending.isEmpty
+                ? 'Please complete all coach assignments before submitting.'
+                : 'Assign staff to complete coaches: $pending'),
+            backgroundColor: kErrorRed,
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 

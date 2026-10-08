@@ -183,7 +183,9 @@ class ObhsAnalyticsService {
 
       return {
         success: true, total, onTime, late,
-        complianceRate: total > 0 ? parseFloat(((onTime / total) * 100).toFixed(1)) : 0
+        complianceRate: total > 0 ? parseFloat(((onTime / total) * 100).toFixed(1)) : 0,
+        // Alias kept for the mobile client, which reads compliancePercentage.
+        compliancePercentage: total > 0 ? parseFloat(((onTime / total) * 100).toFixed(1)) : 0
       };
     } catch (error) {
       logger.error('ObhsAnalyticsService', 'getAttendanceCompliance error', error);
@@ -213,10 +215,17 @@ class ObhsAnalyticsService {
         });
       }
 
+      const completionRate = total > 0 ? parseFloat(((completed / total) * 100).toFixed(1)) : 0;
+      const overdueRate = total > 0 ? parseFloat(((overdue / total) * 100).toFixed(1)) : 0;
       return {
         success: true, total, completed, overdue, planned, open, escalated,
-        completionRate: total > 0 ? parseFloat(((completed / total) * 100).toFixed(1)) : 0,
-        overdueRate: total > 0 ? parseFloat(((overdue / total) * 100).toFixed(1)) : 0
+        completionRate, overdueRate,
+        // Aliases consumed by the mobile analytics screen.
+        completionPercentage: completionRate,
+        completedTasks: completed,
+        pendingTasks: planned + open,
+        overdueTasks: overdue,
+        totalTasks: total
       };
     } catch (error) {
       logger.error('ObhsAnalyticsService', 'getTaskCompletion error', error);
@@ -345,10 +354,17 @@ class ObhsAnalyticsService {
       }
 
       const riskReport = Object.values(overdueByWorker);
+      const totalPenaltyRisk = riskReport.reduce((s, r) => s + r.penaltyAmount, 0);
       return {
         success: true,
         riskReport,
-        totalPenaltyRisk: riskReport.reduce((s, r) => s + r.penaltyAmount, 0)
+        totalPenaltyRisk,
+        // Aliases consumed by the mobile analytics screen.
+        riskScore: riskReport.length > 0
+          ? Math.min(100, Math.round(totalPenaltyRisk / Math.max(1, riskReport.length) / 5)) : 0,
+        riskLevel: totalPenaltyRisk >= 500 ? 'high' : totalPenaltyRisk >= 200 ? 'medium' : 'low',
+        atRiskWorkers: riskReport.filter(r => r.overdueCount > 0 || r.missedCount > 0).length,
+        penaltiesPending: riskReport.length
       };
     } catch (error) {
       logger.error('ObhsAnalyticsService', 'getPenaltyRisk error', error);

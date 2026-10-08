@@ -2,6 +2,11 @@
 /// were written, so coerce instead of casting.
 int _asInt(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
 
+String _asStr(dynamic v) {
+  if (v == null) return '';
+  return v is String ? v : v.toString();
+}
+
 class JanitorPerformanceModel {
   final String workerId;
   final String workerName;
@@ -25,8 +30,9 @@ class JanitorPerformanceModel {
 
   factory JanitorPerformanceModel.fromJson(Map<String, dynamic> json) {
     return JanitorPerformanceModel(
-      workerId: json['workerId'] as String? ?? '',
-      workerName: json['workerName'] as String? ?? '',
+      // API sends janitorId/janitorName; legacy docs used workerId/workerName.
+      workerId: _asStr(json['workerId'] ?? json['janitorId']),
+      workerName: _asStr(json['workerName'] ?? json['janitorName']),
       tasksCompleted: _asInt(json['tasksCompleted']),
       tasksMissed: _asInt(json['tasksMissed']),
       tasksOverdue: _asInt(json['tasksOverdue']),
@@ -58,7 +64,7 @@ class CoachCleanlinessModel {
 
   factory CoachCleanlinessModel.fromJson(Map<String, dynamic> json) {
     return CoachCleanlinessModel(
-      coachNo: json['coachNo'] as String? ?? '',
+      coachNo: _asStr(json['coachNo']),
       cleanlinessScore:
           (json['cleanlinessScore'] as num?)?.toDouble() ?? 0.0,
       toiletCompletions: _asInt(json['toiletCompletions']),

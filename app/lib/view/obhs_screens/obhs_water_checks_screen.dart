@@ -85,6 +85,14 @@ class _ObhsWaterChecksScreenState extends State<ObhsWaterChecksScreen> {
     }
   }
 
+  /// Backend may store coach numbers as `1`, `'1'` or `'C1'`; normalise so
+  /// checks always match the coach card they belong to.
+  String _norm(dynamic v) {
+    var s = v.toString().trim().toUpperCase();
+    if (s.startsWith('C') && s.length > 1) s = s.substring(1);
+    return s;
+  }
+
   List<String> get _coachNumbers {
     if (_runId == null) return [];
     final run = _runs.where((r) => (r.runInstanceId ?? r.id) == _runId);
@@ -93,7 +101,7 @@ class _ObhsWaterChecksScreenState extends State<ObhsWaterChecksScreen> {
         .map((c) => 'C${c.coachPosition}')
         .toSet()
         .toList()
-      ..sort();
+      ..sort((a, b) => _norm(a).compareTo(_norm(b)));
   }
 
   int get _alertCount =>
@@ -201,7 +209,7 @@ class _ObhsWaterChecksScreenState extends State<ObhsWaterChecksScreen> {
                               itemBuilder: (context, i) {
                                 final coach = _coachNumbers[i];
                                 final mine = _checks
-                                    .where((c) => c.coachNo == coach)
+                                    .where((c) => _norm(c.coachNo) == _norm(coach))
                                     .toList();
                                 return _CoachWaterCard(
                                   coachNo: coach,

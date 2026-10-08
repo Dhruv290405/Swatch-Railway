@@ -642,12 +642,15 @@ class ObhsService {
 
   async submitSafetyCheck(body) {
     const { checkId, runInstanceId, coachNo, scheduledTime, fireExtinguisherStatus, fsdsStatus, cctvStatus, emergencyEquipmentStatus, photos, deficiencyReports, remarks } = body;
-    if (!checkId && !(runInstanceId && coachNo)) {
+    // The field app submits run-wide checks that are not tied to a single
+    // coach, so fall back to a stable per-run slot instead of rejecting.
+    const effectiveCoachNo = coachNo || 'ALL';
+    if (!checkId && !runInstanceId) {
       throw new ValidationError('Provide checkId, or runInstanceId together with coachNo.');
     }
     const ref = checkId
       ? db.collection('safety_checks').doc(checkId)
-      : db.collection('safety_checks').doc(this._slotDocId('safety', runInstanceId, coachNo, scheduledTime));
+      : db.collection('safety_checks').doc(this._slotDocId('safety', runInstanceId, effectiveCoachNo, scheduledTime));
 
     const now = new Date().toISOString();
     const payload = {
@@ -664,7 +667,7 @@ class ObhsService {
     };
     if (!checkId) {
       payload.runInstanceId = runInstanceId;
-      payload.coachNo = coachNo;
+      payload.coachNo = effectiveCoachNo;
       payload.scheduledTime = scheduledTime || now;
       payload.createdAt = now;
     }

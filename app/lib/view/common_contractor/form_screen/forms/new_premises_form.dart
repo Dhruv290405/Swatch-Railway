@@ -52,6 +52,8 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
   String? _userRole;
   String? _selectedZone;
   String? _selectedDivision;
+  final TextEditingController _divisionController = TextEditingController();
+  bool _divisionEdited = false;
 
 
   TextEditingController supervisorController = TextEditingController();
@@ -100,8 +102,22 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
         throw Exception('No contracts found');
       }
 
+      // Prefer an active contract whose work categories allow premises
+      // cleaning — the backend rejects the form otherwise.
+      final eligible = contractsList.where((c) {
+        final cats = (c.workCategories ?? '').toLowerCase();
+        final type = (c.contractType ?? '').toLowerCase();
+        return cats.contains('premise') ||
+            cats.contains('premises') ||
+            type == 'premises';
+      }).toList();
+      final activeEligible = eligible.where((c) => c.isActive == true).toList();
+      final pool = activeEligible.isNotEmpty
+          ? activeEligible
+          : (eligible.isNotEmpty ? eligible : contractsList);
+
       // Take first contract ID only (API expects single ID, not comma-separated)
-      contractUidString = contractsList.first.uid.toString();
+      contractUidString = pool.first.uid.toString();
 
 
       if (mounted) {
@@ -229,6 +245,7 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
     signNameController.dispose();
     signDateController.dispose();
     contractorRemarksController.dispose();
+    _divisionController.dispose();
     for (var emp in employees) {
       emp.dispose();
     }
@@ -281,6 +298,11 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
     }
     if (_signedBy == null) {
       _showSnack('Please provide digital signature');
+      return false;
+    }
+    if (contractUidString.trim().isEmpty) {
+      _showSnack(
+          'No contract linked to your account. Contact your administrator to link a Premises Cleaning contract, then reopen this form.');
       return false;
     }
     return true;
@@ -504,7 +526,9 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
 
         Map<String, String> submittedTo = {
           'railwayEmployeeId': _selectedSupervisor!.uid,
-          'division': _selectedSupervisor!.division,
+          'division': _divisionController.text.trim().isNotEmpty
+              ? _divisionController.text.trim()
+              : (_selectedSupervisor!.division ?? ''),
           'depot': _selectedSupervisor!.depot ?? '',
         };
 
@@ -978,15 +1002,15 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
               TextFormField(
-                readOnly: true,
+                // Editable: prefilled from the selected supervisor.
                 decoration: InputDecoration(
-                  hintText: 'Auto populated Division',
+                  hintText: 'Division',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                controller: TextEditingController(
-                    text: _selectedSupervisor?.division ?? ''),
+                controller: _divisionController,
+                onChanged: (_) => _divisionEdited = true,
               ),
             ],
           ],
@@ -1344,6 +1368,9 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
                   onChanged: (v) {
                     setState(() {
                       _selectedSupervisor = v;
+                      if (!_divisionEdited) {
+                        _divisionController.text = v?.division ?? '';
+                      }
                     });
                   },
                   items: _supervisors
@@ -1358,19 +1385,20 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
               TextFormField(
-                readOnly: true,
+                // Editable: prefilled from the selected supervisor, but the
+                // user can correct it before submitting.
                 decoration: InputDecoration(
-                  hintText: 'Auto populated Division',
+                  hintText: 'Division',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                controller: TextEditingController(
-                    text: _selectedSupervisor?.division ?? ''),
+                controller: _divisionController,
+                onChanged: (_) => _divisionEdited = true,
               ),
               const SizedBox(height: 5),
               const Text(
-                'Auto-populated from your assignment',
+                'Prefilled from your assignment — edit if needed',
                 style: TextStyle(color: Colors.blue, fontSize: 13),
               ),
               if (_selectedSupervisor?.depot != null &&

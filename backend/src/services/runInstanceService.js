@@ -214,27 +214,38 @@ class RunInstanceService {
 
     const { uid, name, email, role, division: userDivision, zone: userZone } = creatorData;
     const workerCoachCount = {};
+    // The mobile UI allows up to 3 coaches per worker (obhs_create_run_screen),
+    // so match that limit here instead of rejecting valid assignments.
+    const MAX_COACHES_PER_WORKER = 3;
     for (const c of coachesWithNames) {
       if (c.workerId) {
         workerCoachCount[c.workerId] = (workerCoachCount[c.workerId] || 0) + 1;
-        if (workerCoachCount[c.workerId] > 2) {
-          throw new ValidationError('Coach Assignment Limit', `Worker ${c.workerId} has been assigned to more than 2 coaches. Maximum 2 coaches per worker allowed.`);
+        if (workerCoachCount[c.workerId] > MAX_COACHES_PER_WORKER) {
+          throw new ValidationError('Coach Assignment Limit', `Worker ${c.workerId} has been assigned to more than ${MAX_COACHES_PER_WORKER} coaches. Maximum ${MAX_COACHES_PER_WORKER} coaches per worker allowed.`);
         }
       }
       if (c.attendantId) {
         workerCoachCount[c.attendantId] = (workerCoachCount[c.attendantId] || 0) + 1;
-        if (workerCoachCount[c.attendantId] > 2) {
-          throw new ValidationError('Coach Assignment Limit', `Worker ${c.attendantId} has been assigned to more than 2 coaches. Maximum 2 coaches per worker allowed.`);
+        if (workerCoachCount[c.attendantId] > MAX_COACHES_PER_WORKER) {
+          throw new ValidationError('Coach Assignment Limit', `Worker ${c.attendantId} has been assigned to more than ${MAX_COACHES_PER_WORKER} coaches. Maximum ${MAX_COACHES_PER_WORKER} coaches per worker allowed.`);
         }
       }
-      
+
       if (c.coachPosition || c.coachType) {
-        const isAC = /^[ABHME]/i.test(c.coachPosition || '') || (c.coachType && c.coachType.toUpperCase().includes('AC'));
-        
+        // coachPosition is often a number (1, 2, ...) and coachType carries the
+        // real class (A1, B1, CC, ...). Mirror the app's AC test exactly so a
+        // coach the UI treats as AC is never rejected as non-AC here.
+        const typeUpper = String(c.coachType || '').toUpperCase();
+        const isAC = isACCoach(c.coachType) ||
+          typeUpper.includes('AC') || typeUpper.includes('A1') ||
+          typeUpper.includes('A2') || typeUpper.includes('A3') ||
+          typeUpper.includes('B1') || typeUpper.includes('CC') ||
+          /^[ABHMCE]/i.test(String(c.coachPosition || ''));
+
         if (!isAC && c.attendantId) {
           throw new ValidationError('Assignment Error', `Attendants can only be assigned to AC coaches. Coach ${c.coachPosition || c.coachType} is not an AC coach.`);
         }
-        
+
         if (isAC && (!c.attendantId || !c.workerId)) {
           throw new ValidationError('Train Formation Error', `AC Coach ${c.coachPosition || c.coachType} must have BOTH an Attendant and a Janitor assigned for their distinct tasks.`);
         }
