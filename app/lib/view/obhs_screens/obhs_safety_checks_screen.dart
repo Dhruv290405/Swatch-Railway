@@ -108,29 +108,52 @@ class _ObhsSafetyChecksScreenState extends State<ObhsSafetyChecksScreen> {
       ),
     );
     if (result == null || result.isEmpty) return;
+    if (!mounted) return;
+    final nav = Navigator.of(context, rootNavigator: true);
+    nav.push<void>(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) => const ColoredBox(
+          color: Colors.black26,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    String? failure;
     try {
       await SafetyRepository.reportDeficiency(
         checkId: check.id,
         deficiencyReport: result,
         photoUrl: '',
       );
-      if (!mounted) return;
+    } catch (e) {
+      failure = e.toString().replaceAll('Exception: ', '');
+    } finally {
+      if (nav.canPop()) {
+        nav.pop();
+      }
+    }
+    if (failure != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure),
+            backgroundColor: kErrorRed,
+          ),
+        );
+      }
+      return;
+    }
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Deficiency reported'),
           backgroundColor: kSuccessGreen,
         ),
       );
-      await _loadChecks(_runId!);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: kErrorRed,
-        ),
-      );
     }
+    await _loadChecks(_runId!);
   }
 
   @override

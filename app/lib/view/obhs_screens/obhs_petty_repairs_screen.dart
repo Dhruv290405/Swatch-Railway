@@ -150,31 +150,35 @@ class _ObhsPettyRepairsScreenState extends State<ObhsPettyRepairsScreen> {
             const ColoredBox(color: Colors.black26, child: Center(child: CircularProgressIndicator())),
       ),
     );
-    String? failure;
-    try {
-      await RepairRepository.escalateRepair(repair.id, escalatedTo: target);
-    } catch (e) {
-      failure = e.toString().replaceAll('Exception: ', '');
-    } finally {
-      if (nav.canPop()) nav.pop();
-    }
-    if (failure != null) {
+      String? failure;
+      try {
+        await RepairRepository.escalateRepair(repair.id, escalatedTo: target);
+      } catch (e) {
+        failure = e.toString().replaceAll('Exception: ', '');
+      } finally {
+        try {
+          if (nav.canPop()) nav.pop();
+        } catch (_) {}
+      }
+      if (failure != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure), backgroundColor: kErrorRed),
+          );
+        }
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure), backgroundColor: kErrorRed),
+          const SnackBar(
+            content: Text('Escalated'),
+            backgroundColor: kSuccessGreen,
+          ),
         );
       }
-      return;
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Escalated'),
-          backgroundColor: kSuccessGreen,
-        ),
-      );
-    }
-    await _loadRepairs(_runId!);
+      if (_runId != null && _runId!.isNotEmpty) {
+        await _loadRepairs(_runId!);
+      }
   }
 
   @override

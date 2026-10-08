@@ -42,6 +42,9 @@ import '../../station_cleaning/attendance/station_supervisor_attendance_screen.d
 import '../../station_cleaning/reporting/report_list_screen.dart';
 import '../station_management/area_performance_dashboard.dart';
 import '../station_management/supervisor_shift_assignment_screen.dart';
+import 'package:crm_train/view/common_contractor/form_screen/forms/new_coach_form.dart';
+import 'package:crm_train/view/common_contractor/form_screen/forms/new_premises_form.dart';
+import 'package:crm_train/view/common_contractor/form_screen/forms/cts_form_screen_v2.dart';
 import 'package:crm_train/view/common_railways/forms/common_form_screen.dart';
 import 'package:crm_train/view/obhs_screens/obhs_runs_list_screen.dart';
 import 'package:crm_train/view/obhs_screens/obhs_create_run_screen.dart';
@@ -600,32 +603,17 @@ class _CommonDashboardState extends State<CommonDashboard> {
         break;
       case "coach_cleaning":
         Navigator.push(context, MaterialPageRoute(builder: (context) {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          return CommonFormScreen(
-            role: userRole ?? '',
-            userLevel: authProvider.currentUser?.userType ?? 'zone',
-            initialTabIndex: 0,
-          );
+          return NewCoachFormScreen();
         }));
         break;
       case "premise_cleaning":
         Navigator.push(context, MaterialPageRoute(builder: (context) {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          return CommonFormScreen(
-            role: userRole ?? '',
-            userLevel: authProvider.currentUser?.userType ?? 'zone',
-            initialTabIndex: 1,
-          );
+          return PremisesCleaningForm();
         }));
         break;
       case "cts_cleaning":
         Navigator.push(context, MaterialPageRoute(builder: (context) {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          return CommonFormScreen(
-            role: userRole ?? '',
-            userLevel: authProvider.currentUser?.userType ?? 'zone',
-            initialTabIndex: 2,
-          );
+          return NewCTSFormScreen();
         }));
         break;
       case "station_cleaning":
