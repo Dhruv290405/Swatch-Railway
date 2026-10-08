@@ -5,6 +5,7 @@ import '../../model/train_model.dart';
 import '../../model/run_instance_model.dart';
 import '../../model/railway_worker_model.dart';
 import '../../repositories/obhs_repository.dart';
+import '../../services/api_services.dart';
 
 class CoachData {
   final int coachNumber;
@@ -1433,32 +1434,152 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
       }
     }
 
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(6),
-        color: Colors.white,
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-          items: availableWorkers
-              .map((w) => DropdownMenuItem(
-            value: w.uid,
-            child: Text(
-              '${w.fullName.split(' ')[0]} ${w.trainIds != null && w.trainIds!.isNotEmpty ? '🔗' : ''}',
-              style: const TextStyle(fontSize: 11),
-              overflow: TextOverflow.ellipsis,
+return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(6),
+              color: Colors.white,
             ),
-          ))
-              .toList(),
-          onChanged: onChanged,
-          isExpanded: true,
-          icon: Icon(Icons.arrow_drop_down, size: 16, color: kRailwayBlue),
-          isDense: true,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                hint: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                items: availableWorkers
+                    .map((w) => DropdownMenuItem(
+                  value: w.uid,
+                  child: Text(
+                    '${w.fullName.split(' ')[0]} ${w.trainIds != null && w.trainIds!.isNotEmpty ? 'dY"-' : ''}',
+                    style: const TextStyle(fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ))
+                    .toList(),
+                onChanged: onChanged,
+                isExpanded: true,
+                icon: Icon(Icons.arrow_drop_down, size: 16, color: kRailwayBlue),
+                isDense: true,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        InkWell(
+          onTap: () => _showAddWorkerDialog(role),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            height: 34,
+            width: 34,
+            decoration: BoxDecoration(
+              color: kRailwayBlue,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.person_add, size: 18, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showAddWorkerDialog(String workerType) async {
+    final nameController = TextEditingController();
+    final mobileController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    bool isSubmitting = false;
+    String? error;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text('Add $workerType'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: mobileController,
+                  decoration: const InputDecoration(labelText: 'Mobile *', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passwordController,
+                  decoration: const InputDecoration(labelText: 'Password *', border: OutlineInputBorder()),
+                  obscureText: true,
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(error!, style: const TextStyle(color: Colors.red)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty ||
+                          mobileController.text.trim().isEmpty ||
+                          emailController.text.trim().isEmpty ||
+                          passwordController.text.trim().isEmpty) {
+                        setState(() => error = 'All fields are required');
+                        return;
+                      }
+                      setState(() {
+                        isSubmitting = true;
+                        error = null;
+                      });
+                      try {
+                        await ApiService.createUser(
+                          userType: 'railway',
+                          role: workerType.toUpperCase(),
+                          fullName: nameController.text.trim(),
+                          designation: workerType,
+                          email: emailController.text.trim(),
+                          password: passwordController.text.trim(),
+                          mobile: mobileController.text.trim(),
+                          worker_type: workerType,
+                          trainIds: selectedTrainId != null ? [selectedTrainId!] : [],
+                        );
+                        if (!mounted) return;
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$workerType created successfully'),
+                            backgroundColor: kSuccessGreen,
+                          ),
+                        );
+                        await _loadWorkers();
+                      } catch (e) {
+                        setState(() => error = e.toString().replaceAll('Exception: ', ''));
+                      } finally {
+                        if (mounted) setState(() => isSubmitting = false);
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Create'),
+            ),
+          ],
         ),
       ),
     );

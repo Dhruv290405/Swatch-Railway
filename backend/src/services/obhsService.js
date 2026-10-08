@@ -427,9 +427,13 @@ class ObhsService {
     return { count: complaints.length, complaints };
   }
 
-  async submitFeedback(userData, body) {
-    const { feedbackType, runInstanceId, coachNo, ratings, remarks, passengerName, mobileNumber, inspectorName } = body;
-    if (!runInstanceId || !coachNo || !ratings) throw new ValidationError('Required fields missing.');
+async submitFeedback(userData, body) {
+      const { feedbackType, runInstanceId, coachNo, ratings, remarks, passengerName, mobileNumber, inspectorName } = body;
+      if (!coachNo || !ratings) throw new ValidationError('Required fields missing: coachNo and ratings are required.');
+      // runInstanceId is required for passenger feedback, optional for official
+      if (feedbackType === 'passenger' && !runInstanceId) {
+        throw new ValidationError('runInstanceId is required for passenger feedback.');
+      }
     const feedbackRef = db.collection('obhs_feedbacks').doc();
     const totalStars = Object.values(ratings).reduce((a, b) => a + Number(b), 0);
     const overallRating = parseFloat((totalStars / 5).toFixed(2));

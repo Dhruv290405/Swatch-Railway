@@ -26,8 +26,10 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     'PASSWORD_CHANGED': 'Password Changed',
     'COMPLAINT_ASSIGNED': 'Complaint Assigned',
     'COMPLAINT_ESCALATED': 'Complaint Escalated',
-    'COMPLAINT_AUTO_ROUTED': 'Complaint Auto Routed',
-    'APPROVED': 'Approved',
+'COMPLAINT_AUTO_ROUTED': 'Complaint Auto Routed',
+      'ESCALATION_CREATED': 'Escalation Created',
+      'ESCALATED': 'Escalated',
+      'APPROVED': 'Approved',
     'REJECTED': 'Rejected',
     'CREATED': 'Created',
     'SUBMITTED': 'Submitted',
@@ -194,7 +196,29 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   DateTime? _parseTs(dynamic ts) {
     if (ts == null) return null;
-    return DateTime.tryParse('$ts');
+    if (ts is DateTime) return ts;
+    if (ts is int) return DateTime.fromMillisecondsSinceEpoch(ts, isUtc: true);
+    final str = '$ts';
+    if (str.isEmpty) return null;
+    // Try ISO 8601
+    final parsed = DateTime.tryParse(str);
+    if (parsed != null) return parsed;
+    // Try common formats
+    const formats = [
+      'yyyy-MM-dd HH:mm:ss',
+      'yyyy-MM-dd HH:mm:ss.SSS',
+      'yyyy-MM-ddTHH:mm:ss',
+      'yyyy-MM-ddTHH:mm:ssZ',
+      'yyyy-MM-ddTHH:mm:ss.SSSZ',
+      'dd/MM/yyyy HH:mm:ss',
+      'MM/dd/yyyy HH:mm:ss',
+    ];
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parse(str, true);
+      } catch (_) {}
+    }
+    return null;
   }
 
   List<Map<String, dynamic>> _filteredLogs() {
