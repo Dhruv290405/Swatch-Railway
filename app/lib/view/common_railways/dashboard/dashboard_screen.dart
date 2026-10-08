@@ -18,6 +18,7 @@ import '../trains/train_from_screen.dart';
 import '../users/common_user_management_screen.dart';
 import '../contracts/common_contracts_screen.dart';
 import '../divisions/division_management_screen.dart';
+import '../business_activities/business_activities_screen.dart';
 import '../audit/audit_log_screen.dart';
 import '../billing/billing_dashboard_screen.dart';
 import '../billing/contract_billing_config_screen.dart';
@@ -640,19 +641,28 @@ class _CommonDashboardState extends State<CommonDashboard> {
       case "cts_reports":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const CommonReportScreen(initialIndex: 2)));
         break;
-      case "station_reports": {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        final user = authProvider.currentUser;
-        final stationId = (user?.stationId != null && user!.stationId!.isNotEmpty)
-            ? user.stationId
-            : (user?.stations.isNotEmpty == true ? user!.stations.first : null);
-        Navigator.push(context, MaterialPageRoute(builder: (context) => ReportListScreen(
-          stationId: stationId ?? '',
-          stationName: '',
-          role: user?.role ?? '',
-        )));
-        break;
-      }
+case "station_reports": {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final user = authProvider.currentUser;
+          final stationId = (user?.stationId != null && user!.stationId!.isNotEmpty)
+              ? user.stationId
+              : (user?.stations.isNotEmpty == true ? user!.stations.first : null);
+          if (stationId == null || stationId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No station assigned. Please contact admin or select a station.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            break;
+          }
+          Navigator.push(context, MaterialPageRoute(builder: (context) => ReportListScreen(
+            stationId: stationId,
+            stationName: '',
+            role: user?.role ?? '',
+          )));
+          break;
+        }
       case "divisions":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const DivisionManagementScreen()));
         break;
@@ -664,8 +674,10 @@ class _CommonDashboardState extends State<CommonDashboard> {
         Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminRatingsScreen()));
         break;
       case "audit_logs":
-      case "activity_logs":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const AuditLogScreen()));
+        break;
+      case "activity_logs":
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const BusinessActivitiesScreen()));
         break;
       case "obhs_runs":
         Navigator.push(context, MaterialPageRoute(builder: (context) => const OBHSRunsListScreen()));

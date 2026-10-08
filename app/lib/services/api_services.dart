@@ -4893,7 +4893,7 @@ class ApiService {
     throw Exception('Failed to delete bill');
   }
 
-  static Future<PerformanceBillingDashboard> getPerformanceBillingDashboard({String? contractId, String? stationId}) async {
+static Future<PerformanceBillingDashboard> getPerformanceBillingDashboard({String? contractId, String? stationId}) async {
     final token = await getToken();
     final params = <String, String>{
       if (contractId != null) 'contractId': contractId,
@@ -4904,6 +4904,44 @@ class ApiService {
     if (response.statusCode == 200) {
       return PerformanceBillingDashboard.fromJson(jsonDecode(response.body));
     }
+    throw Exception('Failed to load billing dashboard');
+  }
+
+  static Future<Map<String, dynamic>> getBillingSummary(String contractId) async {
+    final token = await getToken();
+    final uri = Uri.parse('$baseUrl/api/annexure-billing/contracts/$contractId/summary');
+    final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    throw Exception('Failed to load billing summary');
+  }
+
+  static Future<Map<String, dynamic>> getAreaWeightageConfig(String contractId) async {
+    final token = await getToken();
+    final uri = Uri.parse('$baseUrl/api/annexure-billing/contracts/$contractId/items');
+    final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final items = data['items'] as List<dynamic>? ?? [];
+      final Map<String, dynamic> result = {};
+      for (final item in items) {
+        final areas = item['areas'] as List<dynamic>? ?? [];
+        for (final area in areas) {
+          final areaName = area['areaName']?.toString() ?? area['name']?.toString() ?? 'Unknown';
+          result[areaName] = {
+            'weightage': area['weightage'] ?? area['weightagePercent'] ?? 0,
+            'ratePerSqM': area['ratePerSqM'] ?? area['rate'] ?? 0,
+            'minArea': area['minArea'] ?? 0,
+            'maxArea': area['maxArea'] ?? 0,
+          };
+        }
+      }
+      return result;
+    }
+    throw Exception('Failed to load area weightage config');
+  }
+}
     throw Exception('Failed to load billing dashboard');
   }
 
