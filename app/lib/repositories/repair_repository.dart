@@ -20,7 +20,7 @@ class RepairRepository {
       final response = await request().timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          throw Exception('Request timeout');
+          throw 'Request timeout';
         },
       );
       return response;
@@ -33,7 +33,7 @@ class RepairRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/obhs/petty-repairs').replace(
@@ -55,15 +55,15 @@ class RepairRepository {
             [];
         return repairs;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -71,7 +71,7 @@ class RepairRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final response = await _handleRequest(
@@ -94,15 +94,15 @@ class RepairRepository {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -110,7 +110,7 @@ class RepairRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final body = <String, dynamic>{
@@ -133,15 +133,15 @@ class RepairRepository {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 }

@@ -29,7 +29,7 @@ class StationBillingRepository {
       final body = jsonDecode(response.body);
       return StationBillingPack.fromJson(body['pack'] ?? body);
     }
-    throw Exception(jsonDecode(response.body)['message'] ?? 'Failed to generate billing pack');
+    throw jsonDecode(response.body)['message'] ?? 'Failed to generate billing pack';
   }
 
   static Future<List<StationBillingPack>> list(Map<String, String> query) async {
@@ -40,7 +40,7 @@ class StationBillingRepository {
       final List list = body['packs'] ?? [];
       return list.map<StationBillingPack>((e) => StationBillingPack.fromJson(e)).toList();
     }
-    throw Exception('Failed to load billing packs');
+    throw 'Failed to load billing packs';
   }
 
   static Future<StationBillingPack> getById(String uid) async {
@@ -51,7 +51,7 @@ class StationBillingRepository {
     if (response.statusCode == 200) {
       return StationBillingPack.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to load billing pack');
+    throw 'Failed to load billing pack';
   }
 
   static Future<void> updateCompliance(String uid, Map<String, dynamic> checklist) async {
@@ -61,7 +61,7 @@ class StationBillingRepository {
       body: jsonEncode({'checklist': checklist}),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to update compliance');
+      throw 'Failed to update compliance';
     }
   }
 
@@ -71,7 +71,7 @@ class StationBillingRepository {
       headers: await _headers(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to submit billing pack');
+      throw 'Failed to submit billing pack';
     }
   }
 
@@ -81,7 +81,7 @@ class StationBillingRepository {
       headers: await _headers(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to approve billing pack');
+      throw 'Failed to approve billing pack';
     }
   }
 
@@ -92,7 +92,7 @@ class StationBillingRepository {
       body: jsonEncode({'reason': reason}),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to reject billing pack');
+      throw 'Failed to reject billing pack';
     }
   }
 
@@ -107,7 +107,7 @@ class StationBillingRepository {
       }),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to record payment');
+      throw 'Failed to record payment';
     }
   }
 }

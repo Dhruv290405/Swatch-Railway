@@ -69,7 +69,7 @@ class _BillingSupportPackScreenState extends State<BillingSupportPackScreen> {
       final contracts = await ApiService.getActiveContracts();
       final contract = contracts.firstWhere(
         (c) => c.stationIds.contains(widget.stationId),
-        orElse: () => throw Exception('No active contract found for this station'),
+        orElse: () => throw 'No active contract found for this station',
       );
       setState(() {
         _resolvedContractId = contract.uid;

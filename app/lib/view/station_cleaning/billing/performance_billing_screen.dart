@@ -47,7 +47,7 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
       final contracts = await ApiService.getActiveContracts();
       final contract = contracts.firstWhere(
         (c) => c.stationIds.contains(widget.stationId),
-        orElse: () => throw Exception('No active contract for this station'),
+        orElse: () => throw 'No active contract for this station',
       );
       if (!mounted) return;
       setState(() {

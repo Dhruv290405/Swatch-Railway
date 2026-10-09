@@ -20,7 +20,7 @@ class AnalyticsRepository {
       final response = await request().timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          throw Exception('Request timeout');
+          throw 'Request timeout';
         },
       );
       return response;
@@ -33,7 +33,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/analytics/janitor-performance').replace(
@@ -56,15 +56,15 @@ class AnalyticsRepository {
             [];
         return list;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -72,7 +72,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/analytics/coach-cleanliness').replace(
@@ -95,15 +95,15 @@ class AnalyticsRepository {
             [];
         return list;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -111,7 +111,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final queryParams = <String, String>{};
@@ -132,15 +132,15 @@ class AnalyticsRepository {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -148,7 +148,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/obhs/analytics/attendance-compliance').replace(
@@ -165,15 +165,15 @@ class AnalyticsRepository {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -181,7 +181,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/obhs/analytics/task-completion').replace(
@@ -198,15 +198,15 @@ class AnalyticsRepository {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -214,7 +214,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/analytics/passenger-rating-trend').replace(
@@ -231,15 +231,15 @@ class AnalyticsRepository {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 
@@ -247,7 +247,7 @@ class AnalyticsRepository {
     try {
       final token = await _getToken();
       if (token == null) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       }
 
       final uri = Uri.parse('$baseUrl/api/analytics/penalty-risk').replace(
@@ -264,15 +264,15 @@ class AnalyticsRepository {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('AUTH_ERROR');
+        throw 'AUTH_ERROR';
       } else {
-        throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+        throw ApiErrorHandler.getErrorMessage(response.body, response.statusCode);
       }
     } catch (e) {
       if (e.toString().contains('AUTH_ERROR')) {
         rethrow;
       }
-      throw Exception(ApiErrorHandler.getErrorMessage(e, null));
+      throw ApiErrorHandler.getErrorMessage(e, null);
     }
   }
 }
