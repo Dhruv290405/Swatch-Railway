@@ -14,7 +14,7 @@ class StationFeedbackRepository {
 
   static Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw Exception('AUTH_ERROR');
+      throw 'AUTH_ERROR';
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -50,7 +50,7 @@ class StationFeedbackRepository {
 
   static Future<List<StationFeedback>> list({String? stationId, String? category}) async {
     final token = await _getToken();
-    if (token == null) throw Exception('AUTH_ERROR');
+    if (token == null) throw 'AUTH_ERROR';
     var url = '$baseUrl/api/station-feedback/list?';
     if (stationId != null) url += 'stationId=$stationId&';
     if (category != null) url += 'category=$category&';
@@ -64,7 +64,7 @@ class StationFeedbackRepository {
 
   static Future<FeedbackSummary> getSummary(String stationId) async {
     final token = await _getToken();
-    if (token == null) throw Exception('AUTH_ERROR');
+    if (token == null) throw 'AUTH_ERROR';
     final response = await http.get(
       Uri.parse('$baseUrl/api/station-feedback/summary/$stationId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -75,7 +75,7 @@ class StationFeedbackRepository {
 
   static Future<Map<String, dynamic>> getQrData(String stationId) async {
     final token = await _getToken();
-    if (token == null) throw Exception('AUTH_ERROR');
+    if (token == null) throw 'AUTH_ERROR';
     final response = await http.get(
       Uri.parse('$baseUrl/api/station-feedback/qr/$stationId'),
       headers: {'Authorization': 'Bearer $token'},
