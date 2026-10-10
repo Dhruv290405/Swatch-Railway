@@ -19,7 +19,7 @@ class _WorkerAuditScreenState extends State<WorkerAuditScreen> {
   String? _error;
   String _selectedType = 'All';
 
-  final _types = ['All', 'Attendance', 'Task', 'Cleaning', 'Complaint', 'Feedback', 'Pest Control', 'Garbage', 'Machine'];
+  final _types = ['All', 'Attendance', 'Task', 'Cleaning', 'Complaint', 'Feedback', 'Pest Control', 'Garbage', 'Machine', 'Escalation'];
 
   Future<String?> _getAuthToken() async {
     final authProvider = context.read<AuthProvider>();
@@ -73,6 +73,7 @@ class _WorkerAuditScreenState extends State<WorkerAuditScreen> {
       case 'Pest Control': return Icons.bug_report;
       case 'Garbage': return Icons.delete;
       case 'Machine': return Icons.precision_manufacturing;
+      case 'Escalation': return Icons.warning_amber_rounded;
       default: return Icons.history;
     }
   }

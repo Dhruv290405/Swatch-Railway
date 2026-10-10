@@ -28,6 +28,7 @@ router.get('/api/audit-logs', verifyToken, asyncHandler(async (req, res) => {
       else if (log.action?.includes('MACHINE')) type = 'Machine';
       else if (log.action?.includes('COMPLAINT')) type = 'Complaint';
       else if (log.action?.includes('EVIDENCE')) type = 'Task';
+      else if (log.action?.includes('ESCALATION')) type = 'Escalation';
     }
     return { ...log, type };
   });

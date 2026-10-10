@@ -83,7 +83,7 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   bool get _isContractorRoleUser {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final role = auth.currentUser?.role;
-    if (role == 'Contractor Admin' || role == 'Contractor Master') return true;
+    if (role == 'Contractor Admin' || role == 'Contractor Master' || role == 'Contractor Supervisor' || role == 'CTS') return true;
     return (auth.currentUser?.userType ?? '').toLowerCase() == 'contractor';
   }
 
@@ -162,11 +162,12 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
   Future<void> _autoAssignFromCurrentUser() async {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
-    if (currentUser?.role != 'Contractor Admin' && currentUser?.role != 'Contractor Master') return;
+    final role = currentUser?.role;
+    if (role != 'Contractor Admin' && role != 'Contractor Master' && role != 'Contractor Supervisor' && role != 'CTS') return;
     if (currentUser?.entityId == null || currentUser!.entityId!.isEmpty) return;
     try {
       final contracts = await ApiService.getContractsForDropdown(entityId: currentUser.entityId);
-      final isMaster = currentUser.role == 'Contractor Master';
+      final isMaster = role == 'Contractor Master';
 
       if (isMaster) {
         final first = contracts.isNotEmpty ? contracts.first : null;
@@ -188,13 +189,15 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
       if (currentUser.contractId != null && currentUser.contractId!.isNotEmpty) {
         match = contracts.where((c) => c['uid'] == currentUser.contractId).firstOrNull;
       }
-      match ??= contracts.where((c) => c['contractType'] == 'station_cleaning').firstOrNull;
+      match ??= contracts.where((c) => c['contractType'] == 'station_cleaning' || c['contractType'] == 'obhs').firstOrNull;
+      match ??= contracts.firstOrNull;
+
       if (match != null) {
         final contractData = match;
         final rawZone = contractData['zone'] as String?;
         final rawDivision = contractData['division'] as String?;
-        final normZone = _normalizeZoneFromContract(rawZone);
-        final normDivision = _normalizeDivisionFromContract(normZone, rawDivision);
+        final normZone = _normalizeZoneFromContract(rawZone ?? currentUser.zone);
+        final normDivision = _normalizeDivisionFromContract(normZone, rawDivision ?? currentUser.division);
         final zoneDivisions = normZone.isNotEmpty
             ? (DepotDatabase.zoneData[normZone]?.keys.toList() ?? <String>[])
             : <String>[];
@@ -211,6 +214,12 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
           _zone = normZone;
           _division = normDivision;
           divisions = zoneDivisions;
+          if (currentUser.trainId != null && currentUser.trainId!.isNotEmpty) {
+            _trainId ??= currentUser.trainId;
+            _selectedTrainIds = currentUser.trainIds?.isNotEmpty == true
+                ? List<String>.from(currentUser.trainIds!)
+                : [currentUser.trainId!];
+          }
           if (normZone.isNotEmpty && !zones.contains(normZone)) {
             zones = [...zones, normZone];
           }
@@ -222,6 +231,12 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
         _selectedCompany = currentUser.entityId;
         _zone = _normalizeZoneFromContract(currentUser.zone);
         _division = _normalizeDivisionFromContract(_zone, currentUser.division);
+        if (currentUser.trainId != null && currentUser.trainId!.isNotEmpty) {
+          _trainId ??= currentUser.trainId;
+          _selectedTrainIds = currentUser.trainIds?.isNotEmpty == true
+              ? List<String>.from(currentUser.trainIds!)
+              : [currentUser.trainId!];
+        }
         if (_zone != null && _zone!.isNotEmpty) {
           divisions = DepotDatabase.zoneData[_zone]?.keys.toList() ?? [];
         }
@@ -340,24 +355,28 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
   bool _shouldShowWorkerType() {
     if (_selectedRole == null) return false;
-    return _selectedRole!.toLowerCase().contains('worker');
+    final r = _selectedRole!.toLowerCase();
+    return r.contains('worker') || r == 'janitor' || r == 'attendant';
   }
 
   bool _shouldShowTrainSelection() {
     if (_selectedRole == null) return false;
     final r = _selectedRole!.toUpperCase();
-    if (!(r.contains('SUPERVISOR') || r.contains('CTS'))) return false;
-    if (_selectedContractData != null) {
-      final ct = _selectedContractData!['contractType'] as String?;
-      if (ct == 'station_cleaning') return false;
+    if (r.contains('WORKER') || r == 'JANITOR' || r == 'ATTENDANT') return true;
+    if (r.contains('SUPERVISOR') || r.contains('CTS')) {
+      if (_selectedContractData != null) {
+        final ct = _selectedContractData!['contractType'] as String?;
+        if (ct == 'station_cleaning') return false;
+      }
+      return true;
     }
-    return true;
+    return false;
   }
 
   bool _isContractorAdminOrSupervisor() {
     if (_selectedRole == null) return false;
     final r = _selectedRole!.toUpperCase().replaceAll(' ', '_');
-    return r == 'CONTRACTOR_ADMIN' || r == 'CONTRACTOR_SUPERVISOR';
+    return r == 'CONTRACTOR_ADMIN' || r == 'CONTRACTOR_SUPERVISOR' || r == 'CTS' || r == 'CONTRACTOR_WORKER' || r == 'JANITOR' || r == 'ATTENDANT';
   }
 
   bool _isContractorMaster() {
@@ -603,27 +622,57 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
               const SizedBox(height: 12),
 
 
-              DropdownButtonFormField<String>(
-                value: (_selectedRole != null && _getRolesForUserType(_selectedUserType).contains(_selectedRole)) ? _selectedRole : null,
-                decoration: const InputDecoration(
-                  labelText: 'Role *',
-                  border: OutlineInputBorder(),
+              if (_getRolesForUserType(_selectedUserType).isEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Railway Supervisors monitor and score work. They do not create users.',
+                          style: TextStyle(color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                items: _getRolesForUserType(_selectedUserType)
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                    .toList(),
-                validator: (v) => v == null ? 'Select role' : null,
-                onChanged: (v) {
-                  setState(() {
-                    _selectedRole = v;
-                    _selectedCompany = null;
-                    _selectedContractId = null;
-                    _selectedContractData = null;
-                    _selectedContractStationIds = [];
-                    _selectedStationId = null;
-                    _isContractAutoAssigned = false;
-                    _isEntityAutoAssigned = false;
-                    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+                const SizedBox(height: 12),
+              ] else ...[
+                DropdownButtonFormField<String>(
+                  value: (_selectedRole != null && _getRolesForUserType(_selectedUserType).contains(_selectedRole)) ? _selectedRole : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Role *',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _getRolesForUserType(_selectedUserType)
+                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                      .toList(),
+                  validator: (v) => v == null ? 'Select role' : null,
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedRole = v;
+                      if (v == 'Janitor') {
+                        _workerType = 'Janitor';
+                      } else if (v == 'Attendant') {
+                        _workerType = 'Attendant';
+                      } else if (v != 'Contractor Worker') {
+                        _workerType = null;
+                      }
+                      _selectedCompany = null;
+                      _selectedContractId = null;
+                      _selectedContractData = null;
+                      _selectedContractStationIds = [];
+                      _selectedStationId = null;
+                      _isContractAutoAssigned = false;
+                      _isEntityAutoAssigned = false;
+                      final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
 
 
                     if (currentUser?.role == 'Railway Admin') {
@@ -682,6 +731,7 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
                 },
               ),
               const SizedBox(height: 12),
+              ],
 
 
               if (_selectedUserType == 'contractor') ...[
@@ -1406,35 +1456,45 @@ setState(() {
 
   List<String> _getRolesForUserType(String userType) {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    final creatorRole = currentUser?.role ?? '';
 
     if (userType == 'railway') {
-      if (currentUser?.role == 'Railway Admin') {
+      if (creatorRole == 'Railway Admin') {
         return ['Railway Supervisor'];
       }
-      else if (currentUser?.role == 'Railway Master') {
+      else if (creatorRole == 'Railway Master') {
         return [
           'Railway Admin',
           'Railway Supervisor',
         ];
       }
+      else if (creatorRole == 'Railway Supervisor') {
+        return [];
+      }
       else {
         return ['Railway Master', 'Railway Admin', 'Railway Supervisor'];
       }
     } else {
-      if (currentUser?.role == 'Contractor Admin') {
-        return ['Contractor Supervisor'];
+      if (creatorRole == 'Contractor Admin') {
+        return ['Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
       }
-      else if (currentUser?.role == 'Contractor Master') {
-        return ['Contractor Admin', 'Contractor Supervisor'];
+      else if (creatorRole == 'Contractor Master') {
+        return ['Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
       }
-      else if (currentUser?.role == 'Railway Admin') {
-        return ['Contractor Supervisor'];
+      else if (creatorRole == 'Contractor Supervisor' || creatorRole == 'CTS') {
+        return ['Contractor Worker', 'Janitor', 'Attendant'];
       }
-      else if (currentUser?.role == 'Railway Master') {
-        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor'];
+      else if (creatorRole == 'Railway Admin') {
+        return ['Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+      }
+      else if (creatorRole == 'Railway Master') {
+        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+      }
+      else if (creatorRole == 'Railway Supervisor') {
+        return [];
       }
       else {
-        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor'];
+        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
       }
     }
   }

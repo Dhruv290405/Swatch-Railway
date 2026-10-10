@@ -18,7 +18,7 @@ import '../trains/train_from_screen.dart';
 import '../users/common_user_management_screen.dart';
 import '../contracts/common_contracts_screen.dart';
 import '../divisions/division_management_screen.dart';
-import '../business_activities/business_activities_screen.dart';
+import '../business_activities_screen.dart';
 import '../audit/audit_log_screen.dart';
 import '../billing/billing_dashboard_screen.dart';
 import '../billing/contract_billing_config_screen.dart';

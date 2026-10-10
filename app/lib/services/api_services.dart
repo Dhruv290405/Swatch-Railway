@@ -4942,8 +4942,4 @@ static Future<PerformanceBillingDashboard> getPerformanceBillingDashboard({Strin
     throw Exception('Failed to load area weightage config');
   }
 }
-    throw Exception('Failed to load billing dashboard');
-  }
-
-}
 

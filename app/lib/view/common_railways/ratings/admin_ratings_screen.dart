@@ -69,8 +69,12 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
   List<RatingModel> get _psmeRatings =>
       _ratings.where((r) => r.raterType == 'PSME').toList();
 
+  // Include ratings from both 'Supervisor' and 'Admin' types, as well as combined label.
   List<RatingModel> get _supervisorRatings =>
-      _ratings.where((r) => r.raterType == 'Supervisor/Admin').toList();
+      _ratings.where((r) =>
+          r.raterType == 'Supervisor' ||
+          r.raterType == 'Admin' ||
+          r.raterType == 'Supervisor/Admin').toList();
 
   double get _avgOverall {
     if (_ratings.isEmpty) return 0;

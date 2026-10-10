@@ -20,8 +20,11 @@ class UserService {
     // Railway ones (mirrors the app's contractor-only user type dropdown and
     // the existing approve/reject hierarchy in this service).
     const creatorRoleUpper = (creatorRole || '').toUpperCase().replace(/\s+/g, '_');
-    if ((creatorRoleUpper === 'CONTRACTOR_ADMIN' || creatorRoleUpper === 'CONTRACTOR_MASTER') && normalizedUserType !== 'contractor') {
-      throw new ForbiddenError('Contractor Admin / Contractor Master can only create Contractor users.');
+    if (creatorRoleUpper === 'RAILWAY_SUPERVISOR') {
+      throw new ForbiddenError('Railway Supervisors are not permitted to create users. They only monitor and score work.');
+    }
+    if ((creatorRoleUpper === 'CONTRACTOR_ADMIN' || creatorRoleUpper === 'CONTRACTOR_MASTER' || creatorRoleUpper === 'CONTRACTOR_SUPERVISOR' || creatorRoleUpper === 'CTS') && normalizedUserType !== 'contractor') {
+      throw new ForbiddenError('Contractor users can only create Contractor users.');
     }
 
     const emailQuery = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
@@ -226,7 +229,7 @@ class UserService {
         stations: stations || [],
         trainId: trainId || null,
         trainIds: trainIds || (trainId ? [trainId] : []),
-        worker_type: worker_type || null,
+        worker_type: userData.worker_type || worker_type || null,
         stationId: stationId || null,
         platformId: platformId || null,
         areaId: areaId || null,
