@@ -100,3 +100,19 @@ export function asyncHandler(fn) {
 }
 
 export { AppError, ValidationError, AuthenticationError, TokenError, ForbiddenError, NotFoundError, ConflictError, RateLimitError, FirestoreError, IndexError } from '../errors/AppError.js';
+
+/**
+ * 404 handler for unknown routes
+ */
+export function notFoundHandler(req, res, _next) {
+  logger.warn('NotFoundHandler', 'Route not found', { 
+    method: req.method, 
+    url: req.originalUrl,
+    ip: req.ip 
+  });
+  return res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    code: 'NOT_FOUND'
+  });
+}
