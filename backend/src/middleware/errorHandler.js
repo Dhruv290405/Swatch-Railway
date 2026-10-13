@@ -67,3 +67,14 @@ export function errorHandler(err, req, res, _next) {
     code: 'INTERNAL_ERROR'
   });
 }
+
+/**
+ * Wraps an async route/middleware handler so that any thrown errors
+ * are forwarded to Express's next(err) error handler automatically.
+ * @param {Function} fn - async Express middleware/handler
+ */
+export function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
