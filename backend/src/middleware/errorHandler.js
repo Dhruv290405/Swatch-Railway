@@ -78,3 +78,5 @@ export function asyncHandler(fn) {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
+
+export { AppError, ValidationError, AuthenticationError, TokenError, ForbiddenError, NotFoundError, ConflictError, RateLimitError, FirestoreError, IndexError } from '../errors/AppError.js';

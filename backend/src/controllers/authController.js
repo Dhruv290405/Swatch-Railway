@@ -1,5 +1,6 @@
 import { authService } from '../services/authService.js';
-import { asyncHandler, AppError, ValidationError, AuthenticationError, ForbiddenError, NotFoundError } from '../middleware/errorHandler.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { AppError, ValidationError, AuthenticationError, ForbiddenError, NotFoundError } from '../errors/AppError.js';
 
 export const sendOtp = asyncHandler(async (req, res) => {
   const result = await authService.sendOtp(req.body.phone);
@@ -37,7 +38,6 @@ export const login = asyncHandler(async (req, res) => {
     }
     // Handle Error objects with message
     if (error && error.message) {
-      // In production, hide detailed error messages
       const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message;
       const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : (error.code || 'INTERNAL_ERROR');
       return res.status(500).json({
