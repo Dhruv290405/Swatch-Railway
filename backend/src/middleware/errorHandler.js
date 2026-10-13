@@ -2,8 +2,18 @@ import { AppError } from '../errors/AppError.js';
 import logger from '../logger/index.js';
 
 export function errorHandler(err, req, res, _next) {
+  logger.error('ErrorHandler', 'Received error', { 
+    message: err.message, 
+    code: err.code,
+    name: err.name,
+    statusCode: err.statusCode,
+    type: typeof err,
+    stack: err.stack?.split('\n').slice(0, 3).join('\n')
+  });
+
+  // Layer 1: AppError and its subclasses (ValidationError, AuthenticationError, ForbiddenError, NotFoundError)
   if (err instanceof AppError) {
-    logger.error('ErrorHandler', err.message, { code: err.code, statusCode: err.statusCode, details: err.details });
+    logger.error('ErrorHandler', 'Handled as AppError', { message: err.message, code: err.code, statusCode: err.statusCode });
     return res.status(err.statusCode).json({
       success: false,
       error: err.message,
@@ -12,53 +22,48 @@ export function errorHandler(err, req, res, _next) {
     });
   }
 
-  // JWT errors
-  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError' || err.name === 'NotBeforeError') {
-    return res.status(401).json({ success: false, error: err.message, code: 'AUTHENTICATION_ERROR' });
-  }
-
-  // Firestore FAILED_PRECONDITION errors (missing composite index)
-  // SDK returns code as number 9 (gRPC status) or as string 'FAILED_PRECONDITION'/'failed-precondition'
-  if (
-    err.code === 9 ||
-    (typeof err.code === 'string' && ['failed_precondition', 'failed-precondition', 'FAILED_PRECONDITION'].includes(err.code)) ||
-    (typeof err.message === 'string' && err.message.includes('FAILED_PRECONDITION') && err.message.includes('index'))
-  ) {
-    logger.error('ErrorHandler', 'Firestore index missing', err);
-    return res.status(400).json({
+  // Layer 2: Handle Error objects (has message and stack)
+  if (err instanceof Error) {
+    // In production, hide detailed error messages
+    const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+    const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : (err.code || 'INTERNAL_ERROR');
+    logger.error('ErrorHandler', 'Handled as Error object', { message: err.message, code: errorCode });
+    return res.status(500).json({
       success: false,
-      error: 'Database index missing. Create the required Firestore composite index.',
-      code: 'INDEX_MISSING',
-      details: err.message
+      error: errorMessage,
+      code: errorCode
     });
   }
 
-  if (err.name === 'ValidationError' || err.code === 'VALIDATION_ERROR') {
-    return res.status(400).json({
+  // Layer 3: Handle string errors
+  if (typeof err === 'string') {
+    const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : err;
+    const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : 'INTERNAL_ERROR';
+    logger.error('ErrorHandler', 'Handled as string error', { message: err, code: errorCode });
+    return res.status(500).json({
       success: false,
-      error: err.message,
-      code: 'VALIDATION_ERROR'
+      error: errorMessage,
+      code: errorCode
     });
   }
 
-  logger.error('ErrorHandler', 'Unhandled error', { message: err.message, code: err.code, type: typeof err.code, stack: err.stack?.split('\n').slice(0, 5).join('\n') });
+  // Layer 4: Handle number errors (gRPC status codes, etc.)
+  if (typeof err === 'number') {
+    const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : Error ;
+    const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : 'INTERNAL_ERROR';
+    logger.error('ErrorHandler', 'Handled as number error', { message: String(err), code: errorCode });
+    return res.status(500).json({
+      success: false,
+      error: errorMessage,
+      code: errorCode
+    });
+  }
+
+  // Layer 5: Fallback for anything else
+  logger.error('ErrorHandler', 'Unhandled error type', { error: err });
   return res.status(500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : 'Unknown error',
     code: 'INTERNAL_ERROR'
-  });
-}
-
-export function asyncHandler(fn) {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-}
-
-export function notFoundHandler(req, res) {
-  res.status(404).json({
-    success: false,
-    error: `Route ${req.method} ${req.originalUrl} not found`,
-    code: 'NOT_FOUND'
   });
 }

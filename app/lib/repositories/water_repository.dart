@@ -78,7 +78,7 @@ class WaterRepository {
         'runInstanceId': runInstanceId,
         'coachNo': coachNo,
         'checkTime': checkTime,
-        'waterStatus': waterStatus,
+        'waterStatus': waterStatus, 
         'lowWaterAlert': lowWaterAlert,
         'deviceTimestamp': DateTime.now().toUtc().toIso8601String(),
       };

@@ -19,6 +19,8 @@ class UserModel {
   final String? domain;
   final List<String> stations;
   final String? status;
+  final List<String>? trainIds;
+  final String? trainId;
   final DateTime? createdAt;
   final DateTime? submittedAt;
   final DateTime? approvedAt;
@@ -43,6 +45,8 @@ class UserModel {
     this.contractType,
     this.domain,
     this.stations = const [],
+    this.trainIds,
+    this.trainId,
     this.status,
     this.createdAt,
     this.submittedAt,

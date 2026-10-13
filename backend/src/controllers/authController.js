@@ -1,5 +1,5 @@
 import { authService } from '../services/authService.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
+import { asyncHandler, AppError, ValidationError, AuthenticationError, ForbiddenError, NotFoundError } from '../middleware/errorHandler.js';
 
 export const sendOtp = asyncHandler(async (req, res) => {
   const result = await authService.sendOtp(req.body.phone);
@@ -22,8 +22,45 @@ export const verifyEmailOtp = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-  const result = await authService.login(req.body.email, req.body.password);
-  res.status(200).json(result);
+  try {
+    const result = await authService.login(req.body.email, req.body.password);
+    res.status(200).json(result);
+  } catch (error) {
+    // Handle AppError and its subclasses (ValidationError, AuthenticationError, ForbiddenError, NotFoundError)
+    if (error && error.statusCode && error.message && error.code) {
+      return res.status(error.statusCode).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.details && { details: error.details })
+      });
+    }
+    // Handle Error objects with message
+    if (error && error.message) {
+      // In production, hide detailed error messages
+      const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message;
+      const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : (error.code || 'INTERNAL_ERROR');
+      return res.status(500).json({
+        success: false,
+        error: errorMessage,
+        code: errorCode
+      });
+    }
+    // Handle string errors
+    if (error && typeof error === 'string') {
+      return res.status(500).json({
+        success: false,
+        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error,
+        code: 'INTERNAL_ERROR'
+      });
+    }
+    // Fallback for any other error type
+    return res.status(500).json({
+      success: false,
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : 'Unknown error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
 });
 
 export const loginWithMobile = asyncHandler(async (req, res) => {
