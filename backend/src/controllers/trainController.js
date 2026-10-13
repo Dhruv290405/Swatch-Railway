@@ -36,4 +36,9 @@ export const generateSchedule = asyncHandler(async (req, res) => {
   res.status(200).json(result);
 });
 
-export default { createTrain, updateTrain, getTrains, getTrainByUid, getTrainByNumber, getTrainPairs, generateSchedule };
+export const deleteTrain = asyncHandler(async (req, res) => {
+  const result = await trainService.deleteTrain(req.params.uid);
+  res.status(200).json(result);
+});
+
+export default { createTrain, updateTrain, getTrains, getTrainByUid, getTrainByNumber, getTrainPairs, generateSchedule, deleteTrain };

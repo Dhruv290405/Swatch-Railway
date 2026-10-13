@@ -33,7 +33,18 @@ class OBHSRepository {
   }
 
 
-  static Future<List<TrainModel>> getOBHSTrains() async {
+static List<TrainModel>? _trainsCache;
+static DateTime? _lastFetchTime;
+
+static Future<List<TrainModel>> getOBHSTrains() async {
+    // Return cached trains if available (less than 24 hours old)
+    if (_trainsCache != null && _lastFetchTime != null) {
+      final age = DateTime.now().difference(_lastFetchTime!);
+      if (age.inHours < 24) {
+        return _trainsCache!;
+      }
+    }
+
     try {
       final token = await _getToken();
       if (token == null) {
@@ -56,6 +67,9 @@ class OBHSRepository {
                 ?.map((train) => TrainModel.fromJson(train as Map<String, dynamic>))
                 .toList() ??
             [];
+        // Update cache
+        _trainsCache = trains;
+        _lastFetchTime = DateTime.now();
         return trains;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         throw Exception('AUTH_ERROR');
