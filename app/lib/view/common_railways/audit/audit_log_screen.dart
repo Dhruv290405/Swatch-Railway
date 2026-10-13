@@ -28,6 +28,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     'COMPLAINT_ESCALATED': 'Complaint Escalated',
 'COMPLAINT_AUTO_ROUTED': 'Complaint Auto Routed',
       'ESCALATION_CREATED': 'Escalation Created',
+      'ESCALATION_RESOLVED': 'Escalation Resolved',
       'ESCALATED': 'Escalated',
       'APPROVED': 'Approved',
     'REJECTED': 'Rejected',

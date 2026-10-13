@@ -1476,25 +1476,25 @@ setState(() {
       }
     } else {
       if (creatorRole == 'Contractor Admin') {
-        return ['Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Contractor Supervisor', 'Janitor', 'Attendant'];
       }
       else if (creatorRole == 'Contractor Master') {
-        return ['Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Contractor Admin', 'Contractor Supervisor', 'Janitor', 'Attendant'];
       }
       else if (creatorRole == 'Contractor Supervisor' || creatorRole == 'CTS') {
-        return ['Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Janitor', 'Attendant'];
       }
       else if (creatorRole == 'Railway Admin') {
-        return ['Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Contractor Supervisor', 'Janitor', 'Attendant'];
       }
       else if (creatorRole == 'Railway Master') {
-        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Janitor', 'Attendant'];
       }
       else if (creatorRole == 'Railway Supervisor') {
         return [];
       }
       else {
-        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Contractor Worker', 'Janitor', 'Attendant'];
+        return ['Contractor Master', 'Contractor Admin', 'Contractor Supervisor', 'Janitor', 'Attendant'];
       }
     }
   }

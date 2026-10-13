@@ -6,6 +6,7 @@ import '../../../services/api_services.dart';
 import '../../../model/task_billing_models.dart';
 import '../../../model/contracts_model.dart';
 import '../../../repositories/task_billing_repository.dart';
+import '../../../model/performance_billing_models.dart';
 import '../../../utills/app_colors.dart';
 
 class BusinessActivitiesScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class _BusinessActivitiesScreenState extends State<BusinessActivitiesScreen>
   List<ContractModel> _contracts = [];
   DailyBillingMonth? _monthData;
   Map<String, dynamic> _billingSummary = {};
-  Map<String, dynamic> _performanceDashboard = {};
+  PerformanceBillingDashboard? _performanceDashboard;
   Map<String, dynamic> _areaWeightage = {};
 
   @override
@@ -68,7 +69,7 @@ class _BusinessActivitiesScreenState extends State<BusinessActivitiesScreen>
         final futures = <Future>[
           TaskBillingRepository.list(contractId, stationId, DateTime.now().month, DateTime.now().year),
           ApiService.getBillingSummary(contractId),
-          ApiService.getPerformanceBillingDashboard(),
+          ApiService.getPerformanceBillingDashboard(contractId: contractId),
           ApiService.getAreaWeightageConfig(contractId),
         ];
 
@@ -79,7 +80,7 @@ class _BusinessActivitiesScreenState extends State<BusinessActivitiesScreen>
             _contracts = contracts;
             _monthData = results[0] as DailyBillingMonth;
             _billingSummary = results[1] as Map<String, dynamic>;
-            _performanceDashboard = results[2] as Map<String, dynamic>;
+            _performanceDashboard = results[2] as PerformanceBillingDashboard?;
             _areaWeightage = results[3] as Map<String, dynamic>;
             _isLoading = false;
           });
@@ -159,20 +160,20 @@ class _BusinessActivitiesScreenState extends State<BusinessActivitiesScreen>
       onRefresh: _loadData,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-child: Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStatCard('Total Billed', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalBilled), Colors.blue),
+            _buildStatCard('Total Billed', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(totalBilled), Colors.blue),
             const SizedBox(height: 12),
-            _buildStatCard('Total Collected', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalCollected), Colors.green),
+            _buildStatCard('Total Collected', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(totalCollected), Colors.green),
             const SizedBox(height: 12),
-            _buildStatCard('Pending Collection', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(pending), Colors.orange),
+            _buildStatCard('Pending Collection', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(pending), Colors.orange),
             const SizedBox(height: 12),
             _buildStatCard('Active Contracts', contractCount.toString(), Colors.purple),
             const SizedBox(height: 24),
             const Text('Recent Daily Bills', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-if (_monthData?.bills.isEmpty ?? true)
+            if (_monthData?.bills.isEmpty ?? true)
               Center(child: const Text('No daily bills generated yet'))
             else
               ListView.builder(
@@ -185,7 +186,7 @@ if (_monthData?.bills.isEmpty ?? true)
                     child: ListTile(
                       leading: const Icon(Icons.receipt_long, color: kRailwayBlue),
                       title: Text(bill.date, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Net: ${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.netAmount)}'),
+                      subtitle: Text('Net: ${NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.netAmount)}'),
                       trailing: Text(bill.status, style: TextStyle(color: bill.status == 'APPROVED' ? Colors.green : Colors.orange)),
                     ),
                   );
@@ -208,23 +209,23 @@ if (_monthData?.bills.isEmpty ?? true)
               itemCount: bills.length,
               itemBuilder: (context, index) {
                 final bill = bills[index];
-return Card(
+                return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ExpansionTile(
                     leading: const Icon(Icons.receipt_long, color: kRailwayBlue),
                     title: Text(bill.date, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('Status: ${bill.status}'),
-                    trailing: Text(NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.netAmount), style: const TextStyle(fontWeight: FontWeight.bold, color: kSuccessGreen)),
+                    trailing: Text(NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.netAmount), style: const TextStyle(fontWeight: FontWeight.bold, color: kSuccessGreen)),
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildDetailRow('Gross Amount', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.grossAmount)),
-                            _buildDetailRow('Deductions', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.deduction)),
-                            _buildDetailRow('GST', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.gstAmount)),
-                            _buildDetailRow('Net Amount', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(bill.netAmount), isBold: true),
+                            _buildDetailRow('Gross Amount', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.grossAmount)),
+                            _buildDetailRow('Deductions', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.deduction)),
+                            _buildDetailRow('GST', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.gstAmount)),
+                            _buildDetailRow('Net Amount', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(bill.netAmount), isBold: true),
                             const SizedBox(height: 12),
                             const Text('Category Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
@@ -234,7 +235,7 @@ return Card(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text('${c['name'] ?? c['category'] ?? 'Category'}'),
-                                  Text(NumberFormat.currency(locale: 'en_IN', symbol: '₹').format((c['amount'] as num?)?.toDouble() ?? 0)),
+                                  Text(NumberFormat.currency(locale: 'en_IN', symbol: '?').format((c['amount'] as num?)?.toDouble() ?? 0)),
                                 ],
                               ),
                             )).toList(),
@@ -249,7 +250,7 @@ return Card(
           );
   }
 
-Widget _buildAreaWeightageTab() {
+  Widget _buildAreaWeightageTab() {
     return RefreshIndicator(
       onRefresh: _loadData,
       child: (_areaWeightage.isEmpty)
@@ -272,7 +273,7 @@ Widget _buildAreaWeightageTab() {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDetailRow('Weightage %', '${config['weightage'] ?? 'N/A'}%'),
-                            _buildDetailRow('Rate/SqM', NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(config['ratePerSqM'] ?? 0)),
+                            _buildDetailRow('Rate/SqM', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(config['ratePerSqM'] ?? 0)),
                             _buildDetailRow('Min Area', '${config['minArea'] ?? 'N/A'} sqm'),
                             _buildDetailRow('Max Area', '${config['maxArea'] ?? 'N/A'} sqm'),
                           ],
@@ -289,24 +290,40 @@ Widget _buildAreaWeightageTab() {
   Widget _buildPerformanceTab() {
     return RefreshIndicator(
       onRefresh: _loadData,
-      child: (_performanceDashboard.isEmpty)
+      child: (_performanceDashboard == null || _performanceDashboard!.byStatus.isEmpty)
           ? const Center(child: Text('No performance billing data available. Configure from Performance Billing screen.'))
           : ListView(
               padding: const EdgeInsets.all(16),
-              children: _performanceDashboard.entries.map((entry) {
-                final metric = entry.key;
-                final value = entry.value;
-                return Card(
+              children: [
+                _buildPerfMetricCard('Total Bills', _performanceDashboard!.totalBills.toString(), Icons.receipt_long),
+                _buildPerfMetricCard('Total Billed', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(_performanceDashboard!.totalBilled), Icons.attach_money),
+                _buildPerfMetricCard('Total Payable', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(_performanceDashboard!.totalPayable), Icons.account_balance_wallet),
+                _buildPerfMetricCard('Total Paid', NumberFormat.currency(locale: 'en_IN', symbol: '?').format(_performanceDashboard!.totalPaid), Icons.payment),
+                const SizedBox(height: 16),
+                const Text('Bill Status Breakdown', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                ..._performanceDashboard!.byStatus.entries.map((entry) => Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     leading: const Icon(Icons.assessment, color: kRailwayBlue),
-                    title: Text(metric, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: kRailwayBlue)),
+                    title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: Text(entry.value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: kRailwayBlue)),
                   ),
-                );
-              }).toList(),
+                )),
+              ],
             ),
           );
+  }
+
+  Widget _buildPerfMetricCard(String label, String value, IconData icon) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(icon, color: kRailwayBlue),
+        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: kRailwayBlue)),
+      ),
+    );
   }
 
   Widget _buildStatCard(String label, String value, Color color) {

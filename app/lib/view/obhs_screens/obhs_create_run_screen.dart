@@ -1129,7 +1129,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
                           child: TextFormField(
                             initialValue: coach.position?.toString() ?? '',
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 12),
                             decoration: InputDecoration(
                               hintText: 'Pos',
                               hintStyle: TextStyle(fontSize: 10, color: Colors.grey[400]),
@@ -1283,7 +1283,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
     }
 
     return Container(
-      height: 34,
+      height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -1297,7 +1297,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
           items: availableTypes
               .map((t) => DropdownMenuItem(
             value: t,
-            child: Text(t, style: const TextStyle(fontSize: 11)),
+            child: Text(t, style: const TextStyle(fontSize: 12)),
           ))
               .toList(),
           onChanged: (v) => setState(() => coach.type = v),
@@ -1438,7 +1438,7 @@ return Row(
       children: [
         Expanded(
           child: Container(
-            height: 34,
+            height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey[300]!),
@@ -1448,13 +1448,13 @@ return Row(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: value,
-                hint: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                hint: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 items: availableWorkers
                     .map((w) => DropdownMenuItem(
                   value: w.uid,
                   child: Text(
                     '${w.fullName.split(' ')[0]} ${w.trainIds != null && w.trainIds!.isNotEmpty ? 'dY"-' : ''}',
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ))
@@ -1472,7 +1472,7 @@ return Row(
           onTap: () => _showAddWorkerDialog(role),
           borderRadius: BorderRadius.circular(6),
           child: Container(
-            height: 34,
+            height: 44,
             width: 34,
             decoration: BoxDecoration(
               color: kRailwayBlue,

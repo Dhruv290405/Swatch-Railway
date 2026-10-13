@@ -839,10 +839,10 @@ class _ReportListScreenState extends State<ReportListScreen>
       final pdfBytes = await PDFReportService.generateStationReportPdf(report);
       final slug = report.reportType.replaceAll('_', '-');
       final dateStr = report.date.replaceAll('-', '');
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: 'StationReport_${report.stationId}_${slug}_$dateStr.pdf',
-      );
+      await Printing.layoutPdf(onLayout: (_) => pdfBytes, name: "StationReport_${report.stationId}_${slug}_${dateStr}.pdf");
+
+
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1502,10 +1502,10 @@ class _ReportListScreenState extends State<ReportListScreen>
   Future<void> _downloadDayBillingPdf(DailyTaskBillingResponse bill) async {
     try {
       final pdfBytes = await PDFReportService.generateDailyTaskBillingPdf(bill);
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: 'DailyBilling_${widget.stationId}_${bill.date.replaceAll('-', '')}.pdf',
-      );
+      await Printing.layoutPdf(onLayout: (_) => pdfBytes, name: "DailyBilling_${widget.stationId}_${bill.date.replaceAll("-", "")}.pdf");
+
+
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
