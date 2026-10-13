@@ -2,13 +2,13 @@ import { AppError } from '../errors/AppError.js';
 import logger from '../logger/index.js';
 
 export function errorHandler(err, req, res, _next) {
-  logger.error('ErrorHandler', 'Received error', { 
-    message: err.message, 
-    code: err.code,
-    name: err.name,
-    statusCode: err.statusCode,
+  logger.error('ErrorHandler', 'Received error', {
+    message: err?.message,
+    code: err?.code,
+    name: err?.name,
+    statusCode: err?.statusCode,
     type: typeof err,
-    stack: err.stack?.split('\n').slice(0, 3).join('\n')
+    stack: err?.stack?.split('\n').slice(0, 3).join('\n')
   });
 
   // Layer 1: AppError and its subclasses (ValidationError, AuthenticationError, ForbiddenError, NotFoundError)
@@ -22,9 +22,29 @@ export function errorHandler(err, req, res, _next) {
     });
   }
 
+  // Layer 1.5: Handle gRPC/Google Cloud errors (e.g., Firestore quota exceeded - code 8)
+  const isGRPCError = err && typeof err === 'object' && (err.code !== undefined || err.details !== undefined);
+  if (isGRPCError) {
+    const grpcCode = err.code;
+    if (grpcCode === 8 || grpcCode === 'RESOURCE_EXHAUSTED') {
+      logger.error('ErrorHandler', 'Firestore quota exceeded', { message: err.message, code: grpcCode });
+      return res.status(503).json({
+        success: false,
+        error: 'Service temporarily unavailable. Database quota exceeded.',
+        code: 'QUOTA_EXCEEDED'
+      });
+    }
+    // Other gRPC errors
+    logger.error('ErrorHandler', 'gRPC error', { message: err.message, code: grpcCode, details: err.details });
+    return res.status(500).json({
+      success: false,
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+      code: 'GRPC_ERROR'
+    });
+  }
+
   // Layer 2: Handle Error objects (has message and stack)
   if (err instanceof Error) {
-    // In production, hide detailed error messages
     const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
     const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : (err.code || 'INTERNAL_ERROR');
     logger.error('ErrorHandler', 'Handled as Error object', { message: err.message, code: errorCode });
@@ -49,7 +69,7 @@ export function errorHandler(err, req, res, _next) {
 
   // Layer 4: Handle number errors (gRPC status codes, etc.)
   if (typeof err === 'number') {
-    const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : Error ;
+    const errorMessage = process.env.NODE_ENV === 'production' ? 'Internal server error' : String(err);
     const errorCode = process.env.NODE_ENV === 'production' ? 'INTERNAL_ERROR' : 'INTERNAL_ERROR';
     logger.error('ErrorHandler', 'Handled as number error', { message: String(err), code: errorCode });
     return res.status(500).json({
