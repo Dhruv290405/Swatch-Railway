@@ -1,8 +1,7 @@
 import logger from '../logger/index.js';
 
 const REQUIRED_ENV_VARS = [
-  'JWT_SECRET',
-  'FIREBASE_SERVICE_ACCOUNT'
+  'JWT_SECRET'
 ];
 
 const OPTIONAL_ENV_VARS = [
@@ -17,6 +16,9 @@ const OPTIONAL_ENV_VARS = [
 
 export function validateEnvironment() {
   const missing = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT && !process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    missing.push('FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_BASE64');
+  }
 
   if (missing.length > 0) {
     logger.error('Environment', `Missing required environment variables: ${missing.join(', ')}`);
