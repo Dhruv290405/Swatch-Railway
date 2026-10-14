@@ -27,6 +27,19 @@ export const login = asyncHandler(async (req, res) => {
     const result = await authService.login(req.body.email, req.body.password);
     res.status(200).json(result);
   } catch (error) {
+    const isQuotaExceeded = error?.code === 8 ||
+      error?.code === '8' ||
+      error?.code === 'RESOURCE_EXHAUSTED' ||
+      error?.details?.includes?.('RESOURCE_EXHAUSTED') ||
+      error?.message?.includes?.('RESOURCE_EXHAUSTED');
+    if (isQuotaExceeded) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firestore quota exceeded. Enable billing or increase the Firestore quota.',
+        code: 'QUOTA_EXCEEDED'
+      });
+    }
+
     // Handle AppError and its subclasses (ValidationError, AuthenticationError, ForbiddenError, NotFoundError)
     if (error && error.statusCode && error.message && error.code) {
       return res.status(error.statusCode).json({
