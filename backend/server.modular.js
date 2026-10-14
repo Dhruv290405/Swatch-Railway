@@ -92,7 +92,11 @@ async function preGenerateStationCleaningTasks() {
 
 import './src/cron.js';
 await seedDefaultAdmin();
-await preGenerateStationCleaningTasks();
+if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
+  await preGenerateStationCleaningTasks();
+} else {
+  logger.warn('Boot', 'Background jobs disabled by DISABLE_BACKGROUND_JOBS');
+}
 
 app.listen(config.port, () => {
   logger.info('Server', `Modular Swachh Railways server running on http://localhost:${config.port}`);

@@ -10,6 +10,10 @@ import { stationBillingService } from './services/stationBillingService.js';
 import { autoEmailService } from './services/autoEmailService.js';
 
 const CRON_TZ = 'Asia/Kolkata';
+const schedule = (...args) => {
+  if (process.env.DISABLE_CRON === 'true') return null;
+  return cron.schedule(...args);
+};
 
 // Business date (YYYY-MM-DD) in IST, independent of the host server timezone.
 // Offsets of -1/0/+1 days can be supplied for backdating or look-ahead.
@@ -276,7 +280,7 @@ async function runStationCleaningGeneration(generateForDays = 3) {
 }
 
 // ─── Daily midnight: Check contract expiry & generate daily cleaning tasks ───
-cron.schedule('0 0 * * *', async () => {
+schedule('0 0 * * *', async () => {
   logger.info('Cron', ' Running Midnight Cron Job...');
   try {
     await checkContractExpiry();
@@ -294,7 +298,7 @@ cron.schedule('0 0 * * *', async () => {
 }, { timezone: CRON_TZ });
 
 // ─── Daily 6 AM & 6 PM: Regenerate tasks for current day if needed ───
-cron.schedule('0 6,18 * * *', async () => {
+schedule('0 6,18 * * *', async () => {
   try {
     const today = getISTDate();
 
@@ -310,7 +314,7 @@ cron.schedule('0 6,18 * * *', async () => {
 }, { timezone: CRON_TZ });
 
 // ─── Daily 23:55: Automated daily reports ───
-cron.schedule('55 23 * * *', async () => {
+schedule('55 23 * * *', async () => {
   logger.info('Cron', '--- Starting Automated Daily Reports ---');
   try {
     await getDailyReportData();
@@ -319,7 +323,7 @@ cron.schedule('55 23 * * *', async () => {
 }); 
 
 // ─── Monthly (1st at 7 AM IST): Generate previous month's billing packs & dispatch Billing Support Report ───
-cron.schedule('0 7 1 * *', async () => {
+schedule('0 7 1 * *', async () => {
   logger.info('Cron', '--- Starting Monthly Billing Report Cron ---');
   const now = new Date();
   const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
@@ -353,7 +357,7 @@ cron.schedule('0 7 1 * *', async () => {
 }, { timezone: CRON_TZ });
 
 // ─── Daily 2 AM: Evidence archive ───
-cron.schedule('0 2 * * *', async () => {
+schedule('0 2 * * *', async () => {
   logger.info('Cron', '--- Running Evidence Archive Cron ---');
   try {
     const result = await evidence.archiveOldRecords(db, db.getBucket(), 7);
@@ -378,10 +382,14 @@ const stationCleaningFallbackTimer = setInterval(() => {
     logger.error('Cron', ` [StationSchedule-Fallback] FAILED: ${e.message}`);
   });
 }, 600000);
-stationCleaningFallbackTimer.unref?.();
+if (process.env.DISABLE_CRON === 'true') {
+  clearInterval(stationCleaningFallbackTimer);
+} else {
+  stationCleaningFallbackTimer.unref?.();
+}
 
 // ─── Every 15 minutes: Update task statuses based on time ───
-cron.schedule('*/15 * * * *', async () => {
+schedule('*/15 * * * *', async () => {
   try {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -421,7 +429,7 @@ cron.schedule('*/15 * * * *', async () => {
 });
 
 // ─── Every 5 minutes: Check task status transitions near scheduled times ───
-cron.schedule('*/5 * * * *', async () => {
+schedule('*/5 * * * *', async () => {
   try {
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -450,7 +458,7 @@ cron.schedule('*/5 * * * *', async () => {
 });
 
 // ─── Every 5 minutes: Auto-escalate overdue tasks by time threshold ───
-cron.schedule('*/5 * * * *', async () => {
+schedule('*/5 * * * *', async () => {
   try {
     const now = new Date();
     const overdueTasksSnap = await db.collection('task_details').where('status', '==', 'OVERDUE').get();
@@ -491,7 +499,7 @@ cron.schedule('*/5 * * * *', async () => {
 
 // ─── Every minute: Auto-approve station-cleaning shift summaries not acted on
 // (approved/rejected) by a railway approver within 1 hour of submission ───
-cron.schedule('*/1 * * * *', async () => {
+schedule('*/1 * * * *', async () => {
   try {
     const result = await stationCleaningService.autoApproveExpiredShiftSummaries({ maxAgeMs: 3600000 });
     if (result.autoApprovedCount > 0) {
