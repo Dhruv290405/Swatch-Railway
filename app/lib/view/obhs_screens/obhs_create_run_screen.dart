@@ -1084,11 +1084,11 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
             ),
             child: Row(
               children: [
-                SizedBox(width: 28, child: Text('#', style: _headerStyle())),
-                SizedBox(width: 52, child: Text('Pos', style: _headerStyle())),
-                Expanded(flex: 3, child: Text('Type', style: _headerStyle())),
-                const SizedBox(width: 8),
-                Expanded(flex: 4, child: Text('Worker', style: _headerStyle())),
+                SizedBox(width: 24, child: Text('#', style: _headerStyle())),
+                SizedBox(width: 44, child: Text('Pos', style: _headerStyle())),
+                Expanded(flex: 2, child: Text('Type', style: _headerStyle())),
+                const SizedBox(width: 6),
+                Expanded(flex: 5, child: Text('Worker', style: _headerStyle())),
               ],
             ),
           ),
@@ -1111,7 +1111,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       SizedBox(
-                        width: 28,
+                        width: 24,
                         child: Text(
                           '${coach.coachNumber}',
                           style: TextStyle(
@@ -1123,7 +1123,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
                       ),
 
                       SizedBox(
-                        width: 52,
+                        width: 44,
                         child: Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: TextFormField(
@@ -1158,13 +1158,13 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
                       ),
 
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: _buildCompactTypeDropdown(coach),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
 
                       Expanded(
-                        flex: 4,
+                        flex: 5,
                         child: _buildCompactWorkerDropdown(coach),
                       ),
                     ],
@@ -1304,6 +1304,8 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
           isExpanded: true,
           icon: Icon(Icons.arrow_drop_down, size: 16, color: kRailwayBlue),
           isDense: true,
+          menuWidth: 200,
+          menuMaxHeight: 320,
         ),
       ),
     );
@@ -1311,53 +1313,45 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
 
   Widget _buildCompactWorkerDropdown(CoachData coach) {
     if (coach.isAC) {
-      // AC Coach: Two side-by-side dropdowns for Janitor and Attendant
-      return Row(
+      // AC Coach: Janitor and Attendant stacked so each gets full width
+      return Column(
         children: [
-          // Janitor Dropdown
-          Expanded(
-            flex: 1,
-            child: _buildRoleDropdown(
-              coach,
-              label: 'Janitor',
-              role: 'Janitor',
-              value: coach.assignedJanitorId,
-              onChanged: (v) {
-                setState(() {
-                  coach.assignedJanitorId = v;
-                  if (v != null) {
-                    final worker = allWorkers.firstWhere((w) => w.uid == v);
-                    coach.assignedJanitorName = worker.fullName;
-                  } else {
-                    coach.assignedJanitorName = null;
-                  }
-                });
-              },
-              isJanitor: true,
-            ),
+          _buildRoleDropdown(
+            coach,
+            label: 'Janitor',
+            role: 'Janitor',
+            value: coach.assignedJanitorId,
+            onChanged: (v) {
+              setState(() {
+                coach.assignedJanitorId = v;
+                if (v != null) {
+                  final worker = allWorkers.firstWhere((w) => w.uid == v);
+                  coach.assignedJanitorName = worker.fullName;
+                } else {
+                  coach.assignedJanitorName = null;
+                }
+              });
+            },
+            isJanitor: true,
           ),
-          const SizedBox(width: 8),
-          // Attendant Dropdown
-          Expanded(
-            flex: 1,
-            child: _buildRoleDropdown(
-              coach,
-              label: 'Attendant',
-              role: 'Attendant',
-              value: coach.assignedAttendantId,
-              onChanged: (v) {
-                setState(() {
-                  coach.assignedAttendantId = v;
-                  if (v != null) {
-                    final worker = allWorkers.firstWhere((w) => w.uid == v);
-                    coach.assignedAttendantName = worker.fullName;
-                  } else {
-                    coach.assignedAttendantName = null;
-                  }
-                });
-              },
-              isJanitor: false,
-            ),
+          const SizedBox(height: 6),
+          _buildRoleDropdown(
+            coach,
+            label: 'Attendant',
+            role: 'Attendant',
+            value: coach.assignedAttendantId,
+            onChanged: (v) {
+              setState(() {
+                coach.assignedAttendantId = v;
+                if (v != null) {
+                  final worker = allWorkers.firstWhere((w) => w.uid == v);
+                  coach.assignedAttendantName = worker.fullName;
+                } else {
+                  coach.assignedAttendantName = null;
+                }
+              });
+            },
+            isJanitor: false,
           ),
         ],
       );
@@ -1453,8 +1447,8 @@ return Row(
                     .map((w) => DropdownMenuItem(
                   value: w.uid,
                   child: Text(
-                    '${w.fullName.split(' ')[0]} ${w.trainIds != null && w.trainIds!.isNotEmpty ? 'dY"-' : ''}',
-                    style: const TextStyle(fontSize: 12),
+                    w.fullName,
+                    style: const TextStyle(fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ))
@@ -1463,22 +1457,24 @@ return Row(
                 isExpanded: true,
                 icon: Icon(Icons.arrow_drop_down, size: 16, color: kRailwayBlue),
                 isDense: true,
+                menuWidth: 280,
+                menuMaxHeight: 360,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 3),
         InkWell(
           onTap: () => _showAddWorkerDialog(role),
           borderRadius: BorderRadius.circular(6),
           child: Container(
             height: 44,
-            width: 34,
+            width: 30,
             decoration: BoxDecoration(
               color: kRailwayBlue,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(Icons.person_add, size: 18, color: Colors.white),
+            child: const Icon(Icons.person_add, size: 16, color: Colors.white),
           ),
         ),
       ],
