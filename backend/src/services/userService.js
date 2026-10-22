@@ -889,10 +889,12 @@ class UserService {
     let assignedRuns = [];
     allRunsSnapshot.forEach(doc => {
       const runData = doc.data();
-      const assignedCoach = runData.coaches.find(c => c.workerId === uid);
+      const assignedCoach = (runData.coaches || []).find(c =>
+        c.workerId === uid || c.janitorId === uid || c.attendantId === uid,
+      );
       if (assignedCoach) {
         assignedRuns.push({
-          runInstanceId: runData.runInstanceId,
+          runInstanceId: runData.runInstanceId || doc.id,
           instanceId: runData.instanceId,
           trainNo: runData.trainNo,
           trainName: runData.trainName,
@@ -903,6 +905,7 @@ class UserService {
           myCoach: {
             coachPosition: assignedCoach.coachPosition,
             coachType: assignedCoach.coachType,
+            workerType: assignedCoach.attendantId === uid ? 'Attendant' : 'Janitor',
             attendanceStatus: assignedCoach.attendanceStatus
           }
         });
@@ -937,7 +940,9 @@ class UserService {
     let activeRun = null;
     runsSnapshot.forEach(doc => {
       const runData = doc.data();
-      const assignedCoach = runData.coaches.find(c => c.workerId === uid);
+      const assignedCoach = (runData.coaches || []).find(c =>
+        c.workerId === uid || c.janitorId === uid || c.attendantId === uid,
+      );
       if (assignedCoach && !activeRun) {
         activeRun = { ...runData, runInstanceId: runData.runInstanceId || doc.id, coachType: assignedCoach.coachType };
       }

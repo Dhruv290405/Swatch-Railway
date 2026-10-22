@@ -356,23 +356,43 @@ class WorkerController extends GetxController {
     }
 
     final runs = response['assignedRuns'];
-    if (runs is! List || runs.isEmpty) return attendanceRun?.runInstanceId;
-
     Map<String, dynamic>? fallbackRun;
-    for (final rawRun in runs) {
-      if (rawRun is! Map) continue;
-      final run = Map<String, dynamic>.from(rawRun);
-      final runInstanceId = (run['runInstanceId'] ?? run['id'])?.toString();
-      if (runInstanceId == null || runInstanceId.trim().isEmpty) continue;
+    if (runs is List) {
+      for (final rawRun in runs) {
+        if (rawRun is! Map) continue;
+        final run = Map<String, dynamic>.from(rawRun);
+        final runInstanceId = (run['runInstanceId'] ?? run['id'])?.toString();
+        if (runInstanceId == null || runInstanceId.trim().isEmpty) continue;
 
-      fallbackRun ??= run;
-      final status = run['status']?.toString().toLowerCase() ?? '';
-      if (status == 'scheduled' || status == 'active') {
-        return runInstanceId.trim();
+        fallbackRun ??= run;
+        final status = run['status']?.toString().toLowerCase() ?? '';
+        if (status == 'scheduled' || status == 'active') {
+          return runInstanceId.trim();
+        }
       }
     }
 
-    return (fallbackRun?['runInstanceId'] ?? fallbackRun?['id'])?.toString();
+    final profileRunId =
+        (fallbackRun?['runInstanceId'] ?? fallbackRun?['id'])?.toString().trim();
+    if (profileRunId != null && profileRunId.isNotEmpty) return profileRunId;
+
+    // Older profiles can omit attendantId assignments; resolve directly from
+    // the active run endpoint as a fallback before reporting no assignment.
+    try {
+      final activeRunResponse = await WorkerRepository.getActiveRun();
+      final run = activeRunResponse['run'];
+      final activeRunId = run is Map
+          ? (run['runInstanceId'] ?? run['id'])?.toString().trim()
+          : null;
+      if (activeRunResponse['hasAssignment'] == true &&
+          activeRunId != null &&
+          activeRunId.isNotEmpty) {
+        return activeRunId;
+      }
+    } catch (e) {
+      debugPrint('Active-run lookup fallback failed: $e');
+    }
+    return null;
   }
 
   void _applyAttendanceStateFromProfile() {
