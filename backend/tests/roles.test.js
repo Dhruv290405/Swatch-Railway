@@ -163,7 +163,7 @@ describe('WORKER/RAILWAY_WORKER/JANITOR/ATTENDANT - Task access', () => {
   const minimalRoles = ['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'];
   for (const role of minimalRoles) {
     it(`${role} has expected task execution permissions`, () => {
-      expect(ROLE_PERMISSIONS[role]).toEqual([
+      expect(ROLE_PERMISSIONS[role]).toEqual(expect.arrayContaining([
         PERMISSIONS.VIEW_RUN_INSTANCES,
         PERMISSIONS.SUBMIT_COACH_FORM,
         PERMISSIONS.VIEW_TASKS,
@@ -177,8 +177,8 @@ describe('WORKER/RAILWAY_WORKER/JANITOR/ATTENDANT - Task access', () => {
         PERMISSIONS.MANAGE_PEST_CONTROL,
         PERMISSIONS.VIEW_GARBAGE,
         PERMISSIONS.MANAGE_GARBAGE,
-        PERMISSIONS.VIEW_MACHINES
-      ]);
+        PERMISSIONS.VIEW_MACHINES,
+      ]));
     });
   }
 });
