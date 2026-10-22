@@ -7,6 +7,7 @@ import 'package:crm_train/model/contracts_model.dart';
 import 'package:crm_train/model/station_models.dart';
 import '../common_railways/audit/audit_log_screen.dart';
 import 'attendance/station_supervisor_attendance_screen.dart';
+import 'billing/annexure_billing_config_screen.dart';
 import 'billing/area_rate_config_screen.dart';
 import 'billing/billing_support_pack_screen.dart';
 import 'billing/daily_task_billing_screen.dart';
@@ -128,6 +129,8 @@ class _StationCleaningHubScreenState extends State<StationCleaningHubScreen> {
       _moduleCard(context, Icons.payments, 'Performance Billing', Colors.redAccent, () => _openPerformanceBilling(context)),
       if (role.toUpperCase().replaceAll(' ', '_') != 'CONTRACTOR_ADMIN')
         _moduleCard(context, Icons.currency_rupee, 'Area Rates & Weightage', Colors.brown, () => _openAreaRates(context)),
+      if (role.toUpperCase().replaceAll(' ', '_') != 'CONTRACTOR_ADMIN')
+        _moduleCard(context, Icons.table_chart, 'Annexure-4B Config', Colors.teal, () => _openAnnexureConfig(context)),
     ];
 
     final sections = <(String, IconData, List<Widget>)>[
@@ -359,6 +362,19 @@ class _StationCleaningHubScreenState extends State<StationCleaningHubScreen> {
     final contractId = _effectiveContractId();
     if (contractId != null) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => AreaRateConfigScreen(contractId: contractId)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No contract linked to this station')));
+    }
+  }
+
+  void _openAnnexureConfig(BuildContext context) {
+    if (_loadingContract) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Checking contract for this station…')));
+      return;
+    }
+    final contractId = _effectiveContractId();
+    if (contractId != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AnnexureBillingConfigScreen(contractId: contractId, stationName: _selectedStationName)));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No contract linked to this station')));
     }
