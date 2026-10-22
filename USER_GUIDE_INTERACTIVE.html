@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swachh Railways — Interactive User Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+:root{--p:#0b3880;--p2:#1565c0;--accent:#f59e0b;--bg:#0f172a;--card:#1e293b;--card2:#334155;--text:#f8fafc;--muted:#94a3b8;--green:#22c55e;--red:#ef4444;--border:#475569;--radius:14px}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:linear-gradient(135deg,#0b3880,#1565c0);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.topbar h1{font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px}
+.topbar .badge{background:var(--accent);color:#000;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+.hero{text-align:center;padding:40px 20px;background:linear-gradient(160deg,#1e3a8a,#1e40af,#2563eb);border-radius:20px;margin-bottom:28px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(245,158,11,.15),transparent 60%)}
+.hero h2{font-size:28px;font-weight:800;margin-bottom:8px;position:relative;z-index:1}
+.hero p{color:#93c5fd;font-size:14px;position:relative;z-index:1}
+.creds-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:24px}
+.creds-box h3{font-size:15px;margin-bottom:12px;color:var(--accent);display:flex;align-items:center;gap:8px}
+.cred-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.cred-item{background:var(--card2);padding:10px 14px;border-radius:10px;font-size:13px;flex:1;min-width:200px}
+.cred-item span{color:var(--muted);font-size:11px;display:block;margin-bottom:2px}
+.cred-item strong{color:#fff}
+.copy-btn{background:var(--p2);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-left:8px}
+.copy-btn:hover{background:var(--accent);color:#000}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:20px;border-bottom:2px solid var(--border)}
+.tab-btn{background:transparent;color:var(--muted);border:none;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;border-radius:10px 10px 0 0;white-space:nowrap;transition:.2s}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.05)}
+.tab-btn.active{background:var(--card);color:var(--accent);border-bottom:2px solid var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Flow cards */
+.flow{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.flow-header{padding:16px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:.2s}
+.flow-header:hover{background:rgba(255,255,255,.03)}
+.flow-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.flow-title .num{background:var(--accent);color:#000;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;font-weight:800;flex-shrink:0}
+.flow-arrow{color:var(--muted);font-size:18px;transition:transform .3s}
+.flow.open .flow-arrow{transform:rotate(180deg)}
+.flow-body{display:none;padding:0 18px 18px;border-top:1px solid var(--border)}
+.flow.open .flow-body{display:block}
+
+/* Steps */
+.step{display:flex;gap:14px;padding:12px 0;border-bottom:1px dashed rgba(255,255,255,.08)}
+.step:last-child{border-bottom:none}
+.step-num{width:26px;height:26px;background:var(--p2);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
+.step-content{flex:1}
+.step-content p{font-size:13px;line-height:1.6;color:#cbd5e1}
+.step-content .action{color:var(--accent);font-weight:600}
+.step-content .expected{color:var(--green);font-size:12px;margin-top:4px;display:block}
+.step-content .warning{color:var(--red);font-size:12px;margin-top:4px;display:block}
+
+/* Checkbox tracker */
+.check-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0}
+.check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--green);margin-top:2px;flex-shrink:0;cursor:pointer}
+.check-row label{font-size:13px;color:#cbd5e1;cursor:pointer;line-height:1.5}
+.check-row input:checked+label{color:var(--green);text-decoration:line-through}
+
+/* Role badge */
+.role{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin:0 2px}
+.role.sa{background:#7c3aed;color:#fff}
+.role.cm{background:#0891b2;color:#fff}
+.role.ca{background:#2563eb;color:#fff}
+.role.cs{background:#16a34a;color:#fff}
+.role.ri{background:#dc2626;color:#fff}
+.role.ra{background:#ea580c;color:#fff}
+.role.rm{background:#d97706;color:#fff}
+.role.wk{background:#64748b;color:#fff}
+
+.progress-bar-wrap{background:var(--card2);border-radius:20px;height:8px;margin:16px 0 8px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--accent));border-radius:20px;transition:width .5s}
+.progress-text{font-size:12px;color:var(--muted);text-align:right}
+
+.note-box{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:12px 14px;margin:12px 0;font-size:12.5px;color:#fbbf24;line-height:1.5}
+.note-box.danger{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#fca5a5}
+
+@media(max-width:600px){.wrap{padding:12px 10px 40px}.hero h2{font-size:22px}.tabs{gap:2px}.tab-btn{padding:8px 10px;font-size:12px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🚂 Swachh Railways <span class="badge">INTERACTIVE GUIDE</span></h1>
+  <div style="font-size:12px;color:rgba(255,255,255,.7)">v2.0 · Oct 2026</div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h2>🧪 Full Functionality Test Guide</h2>
+    <p>Interactive walkthrough — follow every step, tick checkboxes, track your progress</p>
+  </div>
+
+  <!-- Login Credentials -->
+  <div class="creds-box">
+    <h3>🔑 Login Credentials</h3>
+    <div class="cred-row">
+      <div class="cred-item"><span>Super Admin (Full Access)</span><strong>admin@gmail.com</strong> / <strong>123456</strong> <button class="copy-btn" onclick="copyText('admin@gmail.com')">Copy Email</button></div>
+    </div>
+    <div class="note-box">💡 Use Super Admin to create test accounts for other roles (CM, CA, CS, Railway Inspector, Worker). The team may also provide role-specific accounts. <b>Use only TEST/DUMMY data</b> — the app is connected to a live staging server.</div>
+    <div class="note-box">📱 <b>App APK:</b> Get the latest APK from the team. <b>Backend:</b> https://swatch-railway-0zer.onrender.com (auto-connected)</div>
+  </div>
+
+  <!-- Progress Tracker -->
+  <div style="margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="font-size:15px">📊 Your Testing Progress</h3>
+      <span class="progress-text" id="progressText">0 / 0 complete</span>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Role Legend -->
+  <div style="margin-bottom:20px;font-size:12px;color:var(--muted)">
+    <b>Role Tags:</b>
+    <span class="role sa">Super Admin</span>
+    <span class="role cm">Company Master</span>
+    <span class="role ca">Contractor Admin</span>
+    <span class="role cs">Contractor Supervisor</span>
+    <span class="role ri">Railway Inspector</span>
+    <span class="role ra">Railway Admin</span>
+    <span class="role rm">Railway Master</span>
+    <span class="role wk">Worker</span>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="setup">🔧 Setup</button>
+    <button class="tab-btn" data-tab="ops">⚙️ Operations</button>
+    <button class="tab-btn" data-tab="billing">💰 Billing</button>
+    <button class="tab-btn" data-tab="records">📋 Records</button>
+    <button class="tab-btn" data-tab="chains">🔗 E2E Chains</button>
+    <button class="tab-btn" data-tab="roles">🔒 Role Checks</button>
+    <button class="tab-btn" data-tab="checklist">✅ Final Checklist</button>
+  </div>
+
+  <!-- TAB: SETUP -->
+  <div class="tab-content active" id="tab-setup">
+    <div class="flow open">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">1</span> Login & Navigate to Station Cleaning Hub</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Open the APK on your phone. You see the <span class="action">Splash Screen</span> → auto-redirects to Login.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Enter <span class="action">admin@gmail.com</span> / <span class="action">123456</span> → tap <span class="action">Login</span>.</p><span class="expected">✅ EXPECT: Dashboard loads with KPI cards, quick action buttons.</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>From the bottom nav or menu, open <span class="action">Station Cleaning</span> → tap <span class="action">Module Hub</span>.</p><span class="expected">✅ EXPECT: Hub shows 3 sections — Operations, Billing & Rates, Records & Support.</span></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Check the <span class="action">station dropdown</span> at the top. As Super Admin you can switch stations.</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c1" onchange="updateProgress()"><label for="c1">I have logged in as Super Admin and can see the Module Hub</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">2</span> Create Test Accounts (Users) <span class="role sa">Super Admin</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Go to <span class="action">Users</span> from the bottom nav → tap <span class="action">+ (Create User)</span>.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Create users with these roles (use fake data):<br>• <b>Company Master</b> (e.g., cm_test@test.com / 123456)<br>• <b>Contractor Admin</b> (e.g., ca_test@test.com / 123456)<br>• <b>Contractor Supervisor</b> (e.g., cs_test@test.com / 123456)<br>• <b>Railway Admin</b> (e.g., ra_test@test.com / 123456)<br>• <b>Railway Inspector</b> (e.g., ri_test@test.com / 123456)<br>• <b>Worker</b> (e.g., wk_test@test.com / 123456)</p><span class="expected">✅ EXPECT: Each user creation shows success message.</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Assign each user to a <span class="action">test station</span> during creation.</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c2" onchange="updateProgress()"><label for="c2">All test role accounts created and assigned to a station</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">3</span> Create a Contract for the Station <span class="role sa">Super Admin</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Go to <span class="action">Contracts</span> → <span class="action">+ Create Contract</span>.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Fill: Contract name, link to your test station, set <span class="action">Annual Contract Value (ACV)</span> (e.g. ₹10,00,000), start/end dates.</p><span class="expected">✅ EXPECT: Contract created. Now billing screens will work for this station.</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c3" onchange="updateProgress()"><label for="c3">Contract created and linked to test station</label></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: OPERATIONS -->
+  <div class="tab-content" id="tab-ops">
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">1</span> Area Management — Create Cleaning Areas</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Area Management</span> tile → see <span class="action">Area List</span>.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Check header: <b>Total Areas / Active / Inactive</b> counts.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Tap <span class="action">+ (Add Area)</span> → fill: Area name (e.g. "Platform 1 Corridor"), Type, Size (sq.ft, e.g. 500), Frequency, Main Area → <span class="action">Save</span>.</p><span class="expected">✅ EXPECT: "Area updated" success message. Area appears in list.</span></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Create <b>3-5 areas</b> total (Platform 1, Waiting Hall, Toilet Complex, Parking, Food Court).</p></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Try <span class="action">deleting</span> one area → confirm dialog → verify it's gone.</p><span class="expected">✅ EXPECT: "Area deleted" message. Count decreases.</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c4" onchange="updateProgress()"><label for="c4">Created 3+ areas, verified add/delete works</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">2</span> Supervisor Shift — Assign Shifts</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Supervisor Shift</span> tile.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Find your test CS (Contractor Supervisor) → Set shift to <span class="action">Morning (04:00–11:59)</span> → Save.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Leave the screen and come back → <span class="action">shift must persist</span>.</p><span class="expected">✅ EXPECT: Shift saved and visible after reload.</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c5" onchange="updateProgress()"><label for="c5">Supervisor shift assigned and persists after leaving screen</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">3</span> Generate Task — Assign Work to Supervisor</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Generate Task</span> tile.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Pick a <span class="action">Supervisor</span> from dropdown (the CS you created).</p><span class="warning">⚠ If you skip this → expect error: "Select a supervisor."</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Select 2-3 areas → set <span class="action">Occurrences today = 2</span> for each using the +/- counter.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Check the <b>summary bar</b> at the bottom: date · shift · supervisor · N areas · ~N tasks.</p></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Tap <span class="action">+ Generate Tasks (N areas)</span>.</p><span class="expected">✅ EXPECT: "Tasks generated successfully! N created"</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c6" onchange="updateProgress()"><label for="c6">Tasks generated successfully for selected areas</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">4</span> Complete Tasks & Submit Shift Summary <span class="role cs">Contractor Supervisor</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="note-box">⚡ Log out from Super Admin. Log in as the <b>Contractor Supervisor</b> you created.</div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>After login, go to <span class="action">My Tasks</span> → you should see the generated tasks.</p><span class="expected">✅ EXPECT: Tasks from Step 3 appear in supervisor's task list.</span></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Open a task → <span class="action">Complete</span> it (add photo proof if asked).</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>After completing tasks, you'll see a dialog: <span class="action">"Shift Summary Required"</span>. Tap <span class="action">Shift Summary</span>.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>For each area: add <span class="action">photo + remark</span>. Try submitting with missing data — it should be <b>blocked</b>.</p></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Fill everything → <span class="action">Submit Summary (N areas)</span>.</p><span class="expected">✅ EXPECT: "Shift summary submitted for approval!"</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c7" onchange="updateProgress()"><label for="c7">Tasks completed and shift summary submitted with photos</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">5</span> Approve Shift Summary <span class="role ra">Railway Admin</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="note-box">⚡ Log out. Log in as <b>Railway Admin</b>.</div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → look for <span class="action">Shift Summary Approval</span> → open the submitted summary.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Review photos/remarks → tap <span class="action">Approve Summary</span>.</p><span class="expected">✅ EXPECT: Summary approved. This work now counts in Daily Billing.</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>(Optional) Try <span class="action">Reject with reason</span> on another one — the CS should then see "Shift Summary Resubmit".</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c8" onchange="updateProgress()"><label for="c8">Shift summary approved (or rejected with reason) by Railway Admin</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">6</span> Inspection — Score Cleaning Quality <span class="role ri">Railway Inspector</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="note-box">⚡ Log in as <b>Railway Inspector</b> (or Railway Admin).</div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Inspection</span> tile → tap <span class="action">+</span> to create a new inspection.</p><span class="expected">✅ EXPECT: "Inspection created"</span></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Open it → <span class="action">Start</span> → Rate areas → <span class="action">Submit ratings</span> → <span class="action">Approve</span>.</p><span class="expected">✅ EXPECT: "Inspection started" → "Ratings submitted" → "Inspection approved"</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Try <span class="action">Reject</span> (requires reason). Empty reason must be blocked.</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c9" onchange="updateProgress()"><label for="c9">Inspection created, scored, and approved/rejected</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">7</span> Supervisor Attendance — Check Records</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Supervisor Attendance</span>. Pick today → see status rows.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Pick an <b>older date</b> (up to 365 days back) → history loads. <b>Future dates should NOT be selectable.</b></p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Tap a row → detail dialog shows marks (start / mid / end).</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c10" onchange="updateProgress()"><label for="c10">Attendance records visible, future dates blocked</label></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: BILLING -->
+  <div class="tab-content" id="tab-billing">
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">1</span> Area Rates & Weightage — Configure Money Split <span class="role cm">Company Master</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="note-box">⚡ Log in as <b>Company Master</b>. This tile is HIDDEN for Contractor Admin — verify!</div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Area Rates & Weightage</span> → title "Area Weightage Allocation".</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Check <b>Contract Value</b> card shows Annual (ACV) and Daily value. If "Not set" → contract needs ACV.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Type <span class="action">weightage %</span> into each area (e.g. 30%, 25%, 20%, 15%, 10%). Watch live chips show <b>₹/sq.ft.</b> and <b>₹/day</b>.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Try exceeding 100% → field must show <span class="action">"Max X%"</span>.</p></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Set total to exactly <b>100%</b> → banner turns green: "Fully allocated" → <span class="action">Save</span>.</p><span class="expected">✅ EXPECT: "Weightage saved — daily money & ₹/sq.ft. auto-derived"</span></div></div>
+        <div class="step"><div class="step-num">6</div><div class="step-content"><p>Try saving at <b>97%</b> → must be blocked: "Weightage must total EXACTLY 100%".</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c11" onchange="updateProgress()"><label for="c11">Weightage allocated to 100%, saved successfully, validation works</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">2</span> Daily Billing — Preview & Generate Bills <span class="role ca">Contractor Admin</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="note-box">⚡ Log in as <b>Contractor Admin</b>. This tile is HIDDEN for Company Master — verify!</div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Daily Billing</span> → Pick <span class="action">Single Day</span> mode → pick yesterday's date.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Tap <span class="action">Preview/View</span>.</p><span class="expected">✅ EXPECT: "Preview loaded for YYYY-MM-DD"</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Read the 4 cards:<br>• <b>Amount Breakdown</b> — Expected, Actual, penalty, Net, GST<br>• <b>Performance Summary</b> — 50/20/30 weights, score + grade<br>• <b>Area-wise Execution</b> — table with SQFT, Rate, Wt%, Req, Done, Expected₹, Actual₹</p><span class="warning">⚠ If table says "No active rate or weightage configured — values are zero" → BUG, report it</span></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Tap <span class="action">Generate</span>.</p><span class="expected">✅ EXPECT: "Daily bill generated (immutable)."</span></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Tap <span class="action">Generate again</span> on same date.</p><span class="expected">✅ EXPECT: "Existing bill reused." — no duplicates!</span></div></div>
+        <div class="step"><div class="step-num">6</div><div class="step-content"><p>Switch to <span class="action">Date Range</span> mode → select a FROM/TO range → <span class="action">Preview Range</span> → <span class="action">Generate All</span>.</p><span class="expected">✅ EXPECT: "Range: X generated, Y reused, Z failed — no duplicates."</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c12" onchange="updateProgress()"><label for="c12">Daily bills previewed, generated (no duplicates), PDF downloadable</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">3</span> Performance Billing — Monthly Bill Workflow <span class="role ca">CA</span> → <span class="role ra">RA</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Performance Billing</span> → Check dashboard strip: Bills / Billed₹ / To Pay₹ / Paid₹.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Select Month/Year → <span class="action">New Bill</span>.</p><span class="warning">⚠ If dialog "Cleaning rate not configured" appears — known bug, log it with screenshot.</span></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Open the bill → verify <b>Amount Calculation</b> and <b>Audit Trail</b>.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Drive the full workflow (switch roles as needed):<br><span class="action">Calculate Bill</span> → <span class="action">Submit for Verification</span> → <span class="action">Verify Against Records</span> → <span class="action">Approve</span> → <span class="action">Lock Bill (Final)</span> → <span class="action">Record Payment</span></p><span class="expected">✅ EXPECT: Bill walks through DRAFT → CALCULATED → SUBMITTED → VERIFIED → APPROVED → LOCKED → PAID</span></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Open <span class="action">Scorecard</span> button → verify score circle, grade, 50/20/30 category bars.</p></div></div>
+        <div class="check-row"><input type="checkbox" id="c13" onchange="updateProgress()"><label for="c13">Performance bill walked through full lifecycle to payment</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">4</span> Billing Support Pack — Monthly Invoice</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Billing</span> tile → Pick Month/Year → <span class="action">Go</span>.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Scroll all sections: Attendance, Tasks, Scorecards, Inspection, Feedback, Penalties, <b>Financial Summary</b>.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Tick the <b>Compliance Document Checklist</b> → leave and return → values must persist.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p><span class="action">Submit Pack for Review</span> → switch to approver → <span class="action">Approve</span> (or Reject with reason).</p></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><p>Switch to a payment role → <span class="action">Record Payment</span> (fill Amount, Mode, Reference).</p><span class="expected">✅ EXPECT: "Payment recorded"</span><span class="warning">⚠ CA must NOT see Record Payment button — verify!</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c14" onchange="updateProgress()"><label for="c14">Billing support pack submitted, approved, and payment recorded</label></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: RECORDS -->
+  <div class="tab-content" id="tab-records">
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">1</span> Audit Log — Verify Action History</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Audit Log</span> → See who did what (action, user, timestamp).</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Every billing/approval action you performed should appear here. Filter by station.</p><span class="warning">⚠ Empty audit log after lots of actions = BUG</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c15" onchange="updateProgress()"><label for="c15">Audit log shows all performed actions</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">2</span> Passenger Feedback — Submit & View</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Passenger Feedback</span> → 4 options appear.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p>Tap <span class="action">Submit Passenger Feedback</span> → Enter PNR + star ratings + comments → Submit.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p>Tap <span class="action">View Feedback</span> → verify your submission appears in the list.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p>Tap <span class="action">Generate QR Code</span> → a printable QR appears for passengers to scan.</p><span class="expected">✅ EXPECT: Feedback recorded and appears in list. QR code generates.</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c16" onchange="updateProgress()"><label for="c16">Feedback submitted, visible in list, QR generated</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">3</span> Reports — Generate & Download</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><p>Hub → <span class="action">Reports</span> tile → 3 tabs: Overview | Generate | History.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><p><b>Overview</b> → Check Today / This Week / This Month stats load properly (no infinite spinner).</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><p><b>Generate</b> → Pick a report type → choose Single Day or Date Range → <span class="action">Generate Report</span>.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><p><b>History</b> → Open a row → <span class="action">Download PDF</span> / <span class="action">Download Excel</span> / <span class="action">Send Email</span>.</p><span class="expected">✅ EXPECT: Files download successfully.</span></div></div>
+        <div class="check-row"><input type="checkbox" id="c17" onchange="updateProgress()"><label for="c17">Reports generated and downloaded successfully</label></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: E2E CHAINS -->
+  <div class="tab-content" id="tab-chains">
+    <div class="note-box">🔗 These are the <b>end-to-end chains</b> — run each at least once to verify the full data flow works.</div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">A</span> Setup Chain <span class="role sa">SA</span>/<span class="role cm">CM</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Create contract → Area Management (create 3–5 areas) → Area Rates & Weightage (allocate exactly 100%) → Billing Configuration (GST + penalty slabs) → Save
+        </p>
+        <div class="check-row"><input type="checkbox" id="c18" onchange="updateProgress()"><label for="c18">Chain A: Setup complete (contract + areas + weightage + billing config)</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">B</span> Daily Field Work Chain <span class="role cs">CS</span> + <span class="role ra">RA</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Supervisor Shift (assign shift) → Generate Task → CS sees tasks → Completes work → Shift Summary submitted → Railway Admin approves → Attendance marked
+        </p>
+        <div class="check-row"><input type="checkbox" id="c19" onchange="updateProgress()"><label for="c19">Chain B: Field work complete (tasks → summary → approval)</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">C</span> Daily Money Chain <span class="role ca">CA</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Daily Billing → Preview yesterday → Check area execution includes approved summary → Generate (immutable) → Generate again ("Existing bill reused.") → Download PDF
+        </p>
+        <div class="check-row"><input type="checkbox" id="c20" onchange="updateProgress()"><label for="c20">Chain C: Daily bill generated, no duplicates, PDF works</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">D</span> Monthly Money Chain <span class="role ca">CA</span> → <span class="role ra">RA</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Performance Billing → New Bill → Calculate → Submit → Verify → Approve → Lock → Record Payment → Check Audit Log → Scorecard matches
+        </p>
+        <div class="check-row"><input type="checkbox" id="c21" onchange="updateProgress()"><label for="c21">Chain D: Monthly bill walked through full lifecycle</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">E</span> Support Pack Chain <span class="role ca">CA</span> → approver → payer</div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Billing tile → Go → Submit Pack for Review → Approve/Reject with reason → Record Payment → Download PDF
+        </p>
+        <div class="check-row"><input type="checkbox" id="c22" onchange="updateProgress()"><label for="c22">Chain E: Support pack submitted, approved, payment recorded</label></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-header" onclick="toggleFlow(this)"><div class="flow-title"><span class="num">F</span> Quality Chain <span class="role ri">Railway Inspector</span></div><span class="flow-arrow">▼</span></div>
+      <div class="flow-body">
+        <p style="font-size:13px;color:#94a3b8;line-height:1.8;padding:12px 0">
+          Create Inspection → Start → Rate + deficiencies → Approve → Check scores appear in Daily/Performance billing → Submit Passenger Feedback → Verify 30% component changes
+        </p>
+        <div class="check-row"><input type="checkbox" id="c23" onchange="updateProgress()"><label for="c23">Chain F: Inspection + feedback scores reflected in billing</label></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ROLE CHECKS -->
+  <div class="tab-content" id="tab-roles">
+    <div class="note-box danger">🔒 These are <b>security/permission checks</b>. Log in as each role and verify things are correctly HIDDEN or VIEW-ONLY.</div>
+
+    <div class="check-row"><input type="checkbox" id="c24" onchange="updateProgress()"><label for="c24"><span class="role cm">Company Master</span> — "Daily Billing" tile is HIDDEN in hub</label></div>
+    <div class="check-row"><input type="checkbox" id="c25" onchange="updateProgress()"><label for="c25"><span class="role ca">Contractor Admin</span> — "Area Rates & Weightage" tile is HIDDEN in hub</label></div>
+    <div class="check-row"><input type="checkbox" id="c26" onchange="updateProgress()"><label for="c26"><span class="role ca">Contractor Admin</span> — "Record Payment" button is NOT visible in Billing Support Pack</label></div>
+    <div class="check-row"><input type="checkbox" id="c27" onchange="updateProgress()"><label for="c27"><span class="role rm">Railway Master</span> — "Billing Configuration ⚙" icon is NOT visible in Performance Billing</label></div>
+    <div class="check-row"><input type="checkbox" id="c28" onchange="updateProgress()"><label for="c28"><span class="role rm">Railway Master</span> — No "Generate" button in Daily Billing (view-only)</label></div>
+    <div class="check-row"><input type="checkbox" id="c29" onchange="updateProgress()"><label for="c29"><span class="role rm">Railway Master</span> — Inspection: view only, no approve buttons</label></div>
+    <div class="check-row"><input type="checkbox" id="c30" onchange="updateProgress()"><label for="c30"><span class="role cs">Contractor Supervisor</span> — No "Billing Configuration ⚙" icon visible</label></div>
+    <div class="check-row"><input type="checkbox" id="c31" onchange="updateProgress()"><label for="c31"><span class="role cs">Contractor Supervisor</span> — No "Generate" button in Daily Billing (view-only)</label></div>
+    <div class="check-row"><input type="checkbox" id="c32" onchange="updateProgress()"><label for="c32"><span class="role ri">Railway Inspector</span> — "Area Management" and "Generate Tasks" tiles are NOT visible</label></div>
+    <div class="check-row"><input type="checkbox" id="c33" onchange="updateProgress()"><label for="c33"><span class="role wk">Worker</span> — Station dropdown in hub is NOT available (sees assigned station only)</label></div>
+    <div class="check-row"><input type="checkbox" id="c34" onchange="updateProgress()"><label for="c34">Each role logs in successfully and sees only its own menus</label></div>
+  </div>
+
+  <!-- TAB: FINAL CHECKLIST -->
+  <div class="tab-content" id="tab-checklist">
+    <h3 style="margin-bottom:16px;font-size:16px">✅ Master Checklist — Tick everything before sign-off</h3>
+    <div class="check-row"><input type="checkbox" id="c35" onchange="updateProgress()"><label for="c35">Every role logs in correctly; each sees only its own menus</label></div>
+    <div class="check-row"><input type="checkbox" id="c36" onchange="updateProgress()"><label for="c36">Hub tiles hide correctly (Daily Billing for CM, Area Rates for CA)</label></div>
+    <div class="check-row"><input type="checkbox" id="c37" onchange="updateProgress()"><label for="c37">Area create/edit/delete works; counts update accurately</label></div>
+    <div class="check-row"><input type="checkbox" id="c38" onchange="updateProgress()"><label for="c38">Generate Task → supervisor actually receives tasks on their phone</label></div>
+    <div class="check-row"><input type="checkbox" id="c39" onchange="updateProgress()"><label for="c39">Shift Summary submit → railway approve → counts appear in Daily Billing</label></div>
+    <div class="check-row"><input type="checkbox" id="c40" onchange="updateProgress()"><label for="c40">Weightage totals exactly 100% (both block messages tested)</label></div>
+    <div class="check-row"><input type="checkbox" id="c41" onchange="updateProgress()"><label for="c41">Daily bill generate → re-generate says "Existing bill reused." (no duplicates)</label></div>
+    <div class="check-row"><input type="checkbox" id="c42" onchange="updateProgress()"><label for="c42">Performance bill walks DRAFT → LOCKED → payment; audit log records each step</label></div>
+    <div class="check-row"><input type="checkbox" id="c43" onchange="updateProgress()"><label for="c43">Config changes (GST, penalty) actually change the next generated bill</label></div>
+    <div class="check-row"><input type="checkbox" id="c44" onchange="updateProgress()"><label for="c44">PDFs download; reports export; feedback feeds the 30% billing component</label></div>
+    <div class="check-row"><input type="checkbox" id="c45" onchange="updateProgress()"><label for="c45">No crash, white screen, or "Server error" during normal use</label></div>
+    <div class="check-row"><input type="checkbox" id="c46" onchange="updateProgress()"><label for="c46">Passenger Feedback submitted → appears in list → QR code generates</label></div>
+    <div class="check-row"><input type="checkbox" id="c47" onchange="updateProgress()"><label for="c47">Inspection scores reflected in billing calculations</label></div>
+
+    <div style="margin-top:24px;text-align:center;padding:20px;background:var(--card);border-radius:var(--radius)">
+      <div style="font-size:48px;margin-bottom:8px" id="finalEmoji">🧪</div>
+      <div style="font-size:18px;font-weight:800" id="finalMsg">Complete all checks above to finish testing</div>
+      <div class="progress-bar-wrap" style="margin:16px auto;max-width:400px"><div class="progress-fill" id="finalProgressFill" style="width:0%"></div></div>
+      <div style="font-size:13px;color:var(--muted)" id="finalProgressText">0% complete</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Accordion
+function toggleFlow(el){el.parentElement.classList.toggle('open')}
+
+// Progress tracking with localStorage
+function updateProgress(){
+  const boxes=document.querySelectorAll('input[type=checkbox]');
+  const checked=[...boxes].filter(b=>b.checked).length;
+  const total=boxes.length;
+  const pct=Math.round((checked/total)*100);
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressText').textContent=checked+' / '+total+' complete';
+  document.getElementById('finalProgressFill').style.width=pct+'%';
+  document.getElementById('finalProgressText').textContent=pct+'% complete ('+checked+'/'+total+')';
+  if(pct===100){document.getElementById('finalEmoji').textContent='🎉';document.getElementById('finalMsg').textContent='All tests passed! Testing complete.';}
+  else{document.getElementById('finalEmoji').textContent='🧪';document.getElementById('finalMsg').textContent='Complete all checks to finish testing';}
+  // Save state
+  const state={};boxes.forEach(b=>{state[b.id]=b.checked;});
+  localStorage.setItem('sr_test_progress',JSON.stringify(state));
+}
+
+// Restore state
+try{
+  const saved=JSON.parse(localStorage.getItem('sr_test_progress')||'{}');
+  Object.keys(saved).forEach(id=>{const el=document.getElementById(id);if(el)el.checked=saved[id];});
+  updateProgress();
+}catch(e){}
+
+// Copy helper
+function copyText(t){navigator.clipboard.writeText(t).then(()=>{alert('Copied: '+t)}).catch(()=>{})}
+</script>
+</body>
+</html>
