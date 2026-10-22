@@ -108,7 +108,12 @@ class UserService {
 
     const isWorkerRole = roleUpper.includes('WORKER') || roleUpper === 'JANITOR' || roleUpper === 'ATTENDANT';
     if (isWorkerRole) {
-      const explicitWorkerType = worker_type || (roleUpper === 'JANITOR' ? 'Janitor' : (roleUpper === 'ATTENDANT' ? 'Attendant' : null));
+      // Role takes precedence over any client-supplied worker_type so a
+      // "Janitor" can never be persisted as an "Attendant" (and vice versa).
+      let explicitWorkerType = null;
+      if (roleUpper === 'JANITOR') explicitWorkerType = 'Janitor';
+      else if (roleUpper === 'ATTENDANT') explicitWorkerType = 'Attendant';
+      else explicitWorkerType = worker_type || null;
       if (!explicitWorkerType || !['Janitor', 'Attendant'].includes(explicitWorkerType)) {
         throw new ValidationError("Invalid worker category. Only 'Janitor' and 'Attendant' categories are permitted for workers.");
       }
@@ -319,14 +324,17 @@ class UserService {
     if (userType !== undefined) updateData.userType = userType.toLowerCase();
     if (trainId !== undefined) updateData.trainId = trainId;
     if (trainIds !== undefined) updateData.trainIds = trainIds;
-    if (worker_type !== undefined) {
+    if (worker_type !== undefined || finalRoleUpper === 'JANITOR' || finalRoleUpper === 'ATTENDANT') {
       const targetRoleUpper = finalRoleUpper;
       const isWorkerRole = targetRoleUpper.includes('WORKER') || targetRoleUpper === 'JANITOR' || targetRoleUpper === 'ATTENDANT';
       if (isWorkerRole) {
-        if (!['Janitor', 'Attendant'].includes(worker_type)) {
+        let resolvedWorkerType = worker_type;
+        if (targetRoleUpper === 'JANITOR') resolvedWorkerType = 'Janitor';
+        else if (targetRoleUpper === 'ATTENDANT') resolvedWorkerType = 'Attendant';
+        if (!resolvedWorkerType || !['Janitor', 'Attendant'].includes(resolvedWorkerType)) {
           throw new ValidationError("Invalid worker category. Only 'Janitor' and 'Attendant' categories are permitted for workers.");
         }
-        updateData.worker_type = worker_type;
+        updateData.worker_type = resolvedWorkerType;
       }
     }
     if (stationId !== undefined) updateData.stationId = stationId;
@@ -847,12 +855,19 @@ class UserService {
       if (s === 'APPROVED') stats.approved++;
       if (s === 'REJECTED') stats.rejected++;
 
+      // Normalize worker_type from role for OBHS workers so dropdowns
+      // never mix janitors and attendants due to stale/mismatched data.
+      const roleUpper = (d.role || '').toUpperCase().replace(/\\s+/g, '_');
+      let normalizedWorkerType = d.worker_type || d.workerType || null;
+      if (roleUpper === 'JANITOR') normalizedWorkerType = 'Janitor';
+      if (roleUpper === 'ATTENDANT') normalizedWorkerType = 'Attendant';
+
       if (filterStatus) {
         if (s === filterStatus.toUpperCase()) {
-          workerList.push({ ...d, uid: doc.id });
+          workerList.push({ ...d, uid: doc.id, worker_type: normalizedWorkerType, workerType: normalizedWorkerType });
         }
       } else {
-        workerList.push({ ...d, uid: doc.id });
+        workerList.push({ ...d, uid: doc.id, worker_type: normalizedWorkerType, workerType: normalizedWorkerType });
       }
     });
 

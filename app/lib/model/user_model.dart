@@ -19,7 +19,7 @@ class UserModel {
   final String? domain;
   final List<String> stations;
   final String? status;
-  final List<String>? trainIds;
+  final String? workerType; // 'Janitor' or 'Attendant' for OBHS workers
   final String? trainId;
   final DateTime? createdAt;
   final DateTime? submittedAt;
@@ -45,6 +45,7 @@ class UserModel {
     this.contractType,
     this.domain,
     this.stations = const [],
+    this.workerType,
     this.trainIds,
     this.trainId,
     this.status,
@@ -117,6 +118,7 @@ class UserModel {
       contractType: user['contractType'],
       domain: user['domain'],
       stations: (user['stations'] as List?)?.cast<String>() ?? [],
+      workerType: (user['worker_type'] ?? user['workerType']) as String?,
       status: user['status'],
       createdAt: _parseTimestamp(user['createdAt']),
       submittedAt: _parseTimestamp(user['submitted_at']),
@@ -147,6 +149,7 @@ class UserModel {
       contractType: json['contractType'],
       domain: json['domain'],
       stations: (json['stations'] as List?)?.cast<String>() ?? [],
+      workerType: (json['worker_type'] ?? json['workerType']) as String?,
       status: json['status'],
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
@@ -181,6 +184,7 @@ class UserModel {
       'contractType': contractType,
       'domain': domain,
       'stations': stations,
+      if (workerType != null) 'workerType': workerType,
       'status': status,
       'createdAt': createdAt?.toIso8601String(),
       'submittedAt': submittedAt?.toIso8601String(),

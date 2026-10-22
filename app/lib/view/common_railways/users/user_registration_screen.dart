@@ -356,7 +356,9 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   bool _shouldShowWorkerType() {
     if (_selectedRole == null) return false;
     final r = _selectedRole!.toLowerCase();
-    return r.contains('worker') || r == 'janitor' || r == 'attendant';
+    // Janitor/Attendant roles imply a fixed worker type; don't let it be overridden.
+    if (r == 'janitor' || r == 'attendant') return false;
+    return r.contains('worker');
   }
 
   bool _shouldShowTrainSelection() {

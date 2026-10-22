@@ -1378,6 +1378,21 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
     }
   }
 
+  String _effectiveWorkerType(RailwayWorkerModel w) {
+    final wt = (w.workerType ?? '').trim();
+    if (wt.isNotEmpty) return wt;
+    final roleUpper = w.role.toUpperCase().replaceAll(' ', '_');
+    if (roleUpper == 'JANITOR') return 'Janitor';
+    if (roleUpper == 'ATTENDANT') return 'Attendant';
+    final designation = (w.designation ?? '').toLowerCase();
+    if (designation.contains('attendant')) return 'Attendant';
+    if (designation.contains('janitor')) return 'Janitor';
+    final fullName = w.fullName.toLowerCase();
+    if (fullName.contains('attendant')) return 'Attendant';
+    if (fullName.contains('janitor')) return 'Janitor';
+    return wt;
+  }
+
   Widget _buildRoleDropdown(CoachData coach, {
     required String label,
     required String role,
@@ -1385,7 +1400,10 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
     required ValueChanged<String?> onChanged,
     required bool isJanitor,
   }) {
-    final workers = allWorkers.where((w) => w.workerType == role).toList();
+    final workers = allWorkers.where((w) {
+      final effectiveType = _effectiveWorkerType(w);
+      return effectiveType.toLowerCase() == role.toLowerCase();
+    }).toList();
     
     // Filter out already assigned workers based on role
     final assignedIds = <String>{};

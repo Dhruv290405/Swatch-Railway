@@ -1035,10 +1035,13 @@ async submitFeedback(userData, body) {
     runs.sort((a, b) => ((b.createdAt || '') > (a.createdAt || '') ? 1 : -1));
 
     let runDoc = null;
+    let myCoaches = [];
     for (const r of runs) {
       const coaches = r.coaches || [];
-      if (coaches.some(c => c.workerId === uid)) {
+      const assigned = coaches.filter(c => c.workerId === uid || c.attendantId === uid);
+      if (assigned.length > 0) {
         runDoc = r;
+        myCoaches = assigned;
         break;
       }
     }
@@ -1047,7 +1050,6 @@ async submitFeedback(userData, body) {
       return { success: true, hasAssignment: false, run: null };
     }
     const runData = runDoc;
-    const myCoaches = (runData.coaches || []).filter(c => c.workerId === uid);
 
     return {
       success: true,
@@ -1064,8 +1066,10 @@ async submitFeedback(userData, body) {
         coachNo: c.coachPosition || c.coachNo || c.id || 'N/A',
         coachType: c.coachType || 'general',
         workerId: c.workerId,
+        attendantId: c.attendantId || null,
         workerName: c.workerName || c.name || '',
-        workerRole: c.workerRole || 'janitor'
+        workerRole: c.attendantId === uid ? 'attendant' : (c.workerRole || 'janitor'),
+        isAttendant: c.attendantId === uid
       }))
     };
   }
