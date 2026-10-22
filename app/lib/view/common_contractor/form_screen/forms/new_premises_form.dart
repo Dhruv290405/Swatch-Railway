@@ -99,7 +99,7 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
       );
 
       if (contractsList.isEmpty) {
-        throw Exception('No contracts found');
+        throw Exception('No contracts found for entity "${user!.entityId}" (zone: ${user.zone}, division: ${user.division})');
       }
 
       // Prefer an active contract whose work categories allow premises
@@ -301,8 +301,10 @@ class _PremisesCleaningFormState extends State<PremisesCleaningForm> {
       return false;
     }
     if (contractUidString.trim().isEmpty) {
+      final provider = Provider.of<AuthProvider>(context, listen: false);
+      final eid = provider.currentUser?.entityId ?? '(none)';
       _showSnack(
-          'No contract linked to your account. Contact your administrator to link a Premises Cleaning contract, then reopen this form.');
+          'No Premises Cleaning contract found for your account (entity: $eid). Ask admin to link a Premises Cleaning contract to your company, then reopen this form.');
       return false;
     }
     return true;
