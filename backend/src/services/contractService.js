@@ -377,7 +377,10 @@ class ContractService {
         }
       }
       if (include) {
-        contracts.push(data);
+        // The contract document ID is the canonical ID the form endpoints
+        // expect. Include it in dropdown responses so clients do not submit
+        // an empty contractId.
+        contracts.push({ ...data, uid: doc.id });
       }
     });
     return { count: contracts.length, contracts };

@@ -11,14 +11,16 @@ class CtsFormService {
       attendanceStaff, garbageDisposed, nominatedLocation, occupiedToilets, notes,
       submittedTo, signature, contractId
     } = body;
+    const effectiveContractId = String(contractId || contractorSupervisor.contractId || '').trim();
+    const effectiveTrainId = String(trainId || '').trim();
 
-    if (!trainId || !contractId || !formDateTime) {
+    if (!effectiveTrainId || !effectiveContractId || !formDateTime) {
       throw new ValidationError("Missing mandatory fields (Train or Contract).");
     }
 
     const [contractDoc, trainDoc, userDoc] = await Promise.all([
-      db.collection('contracts').doc(contractId).get(),
-      db.collection('trains').doc(trainId).get(),
+      db.collection('contracts').doc(effectiveContractId).get(),
+      db.collection('trains').doc(effectiveTrainId).get(),
       submittedTo?.railwayEmployeeId ? db.collection('users').doc(submittedTo.railwayEmployeeId).get() : Promise.resolve(null)
     ]);
 
@@ -43,9 +45,9 @@ class CtsFormService {
     const newFormId = await generateFormId('cts', contractorSupervisor.division);
 
     const ctsFormData = {
-      uid: newFormId, formId: newFormId, contractId,
+      uid: newFormId, formId: newFormId, contractId: effectiveContractId,
       station: stationName, agreementNo, agreementDate, contractorName, jobDate,
-      trainId, trainNumber: trainData.trainNo || "", trainName: trainData.trainName || "",
+      trainId: effectiveTrainId, trainNumber: trainData.trainNo || "", trainName: trainData.trainName || "",
       formDateTime, actArrival, actDeparture, workStart, workEnd,
       platform: platform || null, allowedWindow: allowedWindow || null,
       lateYN: lateYN || "No", coachesInRake: coachesInRake || 0,

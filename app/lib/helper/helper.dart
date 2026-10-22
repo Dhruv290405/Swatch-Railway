@@ -16,34 +16,39 @@ void navigateUser(BuildContext context, UserModel user) {
   const obhsRoles = {'CTS', 'JANITOR', 'ATTENDANT', 'WORKER'};
 
   const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
+  final stationWorkerType = (user.workerType ?? '').toUpperCase();
+  final isStationCleaningWorker =
+      user.contractType == 'station_cleaning' &&
+      (role == 'JANITOR' ||
+          role == 'ATTENDANT' ||
+          (role == 'WORKER' &&
+              (stationWorkerType == 'JANITOR' ||
+                  stationWorkerType == 'ATTENDANT')));
 
-  if (user.contractType == 'mcc') {
+  if (isStationCleaningWorker) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => MccRouter(user: user),
-      ),
+      MaterialPageRoute(builder: (_) => WorkerMobileNavBar(user: user)),
+    );
+  } else if (user.contractType == 'mcc') {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MccRouter(user: user)),
     );
   } else if (railwayWorkerRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => WorkerMobileNavBar(user: user),
-      ),
+      MaterialPageRoute(builder: (_) => WorkerMobileNavBar(user: user)),
     );
   } else if (obhsRoles.contains(role)) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => ObhsMccRouter(user: user),
-      ),
+      MaterialPageRoute(builder: (_) => ObhsMccRouter(user: user)),
     );
   } else {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => MainNavScreen(user: user),
-      ),
+      MaterialPageRoute(builder: (_) => MainNavScreen(user: user)),
     );
   }
 }

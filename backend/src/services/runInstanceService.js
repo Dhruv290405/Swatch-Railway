@@ -476,7 +476,9 @@ class RunInstanceService {
       if (found) return;
       const runData = doc.data();
       if (runData.coaches && Array.isArray(runData.coaches)) {
-        const assigned = runData.coaches.some(c => c.workerId === workerId || c.janitorId === workerId);
+        const assigned = runData.coaches.some(c =>
+          c.workerId === workerId || c.janitorId === workerId || c.attendantId === workerId,
+        );
         if (assigned) {
           found = { id: doc.id, ...runData };
         }
@@ -494,22 +496,69 @@ class RunInstanceService {
       throw new NotFoundError('Run Instance not found.');
     }
     const data = doc.data();
-    const validStatuses = ['PLANNED', 'ALLOCATED'];
+    const validStatuses = [
+      'PLANNED', 'ALLOCATED', 'READY', 'ACTIVE', 'Active', 'active',
+      'SCHEDULED', 'Scheduled', 'scheduled',
+    ];
     if (!validStatuses.includes(data.status)) {
       throw new ValidationError(
         'Invalid State Transition',
-        `Cannot delete a run instance with status '${data.status}'. Only 'PLANNED' or 'ALLOCATED' can be deleted.`
+        `Cannot delete a run instance with status '${data.status}'. Only runs that have not started can be deleted.`,
       );
     }
 
-    const collections = ['task_headers', 'task_details'];
+    const attendance = await db.collection('obhs_attendance')
+      .where('runInstanceId', '==', uid)
+      .limit(1)
+      .get();
+    if (!attendance.empty || data.attendanceCaptured === true) {
+      throw new ValidationError(
+        'Invalid State Transition',
+        'Cannot delete a run instance after attendance has started.',
+      );
+    }
+
+    const tasks = await db.collection('task_instances')
+      .where('runInstanceId', '==', uid)
+      .limit(2000)
+      .get();
+    const unstartedStatuses = new Set(['', 'PENDING', 'PLANNED', 'ASSIGNED', 'OPEN']);
+    const hasTaskProgress = tasks.docs.some(taskDoc => {
+      const status = String(taskDoc.data().status || '').toUpperCase();
+      return !unstartedStatuses.has(status);
+    });
+    if (hasTaskProgress) {
+      throw new ValidationError(
+        'Invalid State Transition',
+        'Cannot delete a run instance after task execution has started.',
+      );
+    }
+
+    const collections = [
+      'task_headers',
+      'task_details',
+      'task_instances',
+      'garbage_tasks',
+      'water_checks',
+      'safety_checks',
+      'petty_repairs',
+      'linen_tasks',
+      'berth_inspections',
+      'obhs_task_instances',
+    ];
     for (const collectionName of collections) {
-      const snapshot = await db.collection(collectionName).where('runInstanceId', '==', uid).limit(200).get();
-      if (!snapshot.empty) {
-        const batch = db.batch();
-        snapshot.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      }
+      let snapshot;
+      do {
+        snapshot = await db.collection(collectionName)
+          .where('runInstanceId', '==', uid)
+          .limit(400)
+          .get();
+        if (!snapshot.empty) {
+          const batch = db.batch();
+          snapshot.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+        }
+      } while (!snapshot.empty);
     }
 
     if (data.instanceId) {

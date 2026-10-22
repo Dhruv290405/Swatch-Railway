@@ -428,7 +428,11 @@ class ObhsService {
   }
 
 async submitFeedback(userData, body) {
-      const { feedbackType, runInstanceId, coachNo, ratings, remarks, passengerName, mobileNumber, inspectorName } = body;
+      const {
+        feedbackType, runInstanceId, coachNo, ratings, remarks, passengerName,
+        mobileNumber, inspectorName, workerId, workerName, raterType,
+        isRandomInspection,
+      } = body;
       if (!coachNo || !ratings) throw new ValidationError('Required fields missing: coachNo and ratings are required.');
       // runInstanceId is required for passenger feedback, optional for official
       if (feedbackType === 'passenger' && !runInstanceId) {
@@ -442,6 +446,11 @@ async submitFeedback(userData, body) {
       feedbackId: feedbackRef.id,
       feedbackType: fType,
       runInstanceId, coachNo, ratings, overallRating,
+      workerId: workerId || null,
+      targetWorker: workerId || null,
+      workerName: workerName || null,
+      raterType: fType === 'OFFICIAL' ? (raterType || 'Official') : 'Passenger',
+      isRandomInspection: isRandomInspection === true || isRandomInspection === 'Yes',
       remarks: remarks || '', createdAt: new Date().toISOString()
     };
     if (fType === 'OFFICIAL') {
@@ -452,7 +461,12 @@ async submitFeedback(userData, body) {
     }
     await feedbackRef.set(feedbackData);
 
-    return { success: true, message: 'Feedback submitted.', overallRating };
+    return {
+      success: true,
+      message: 'Feedback submitted.',
+      overallRating,
+      data: feedbackData,
+    };
   }
 
   async getFeedbacks(filters = {}) {
@@ -472,9 +486,10 @@ async submitFeedback(userData, body) {
 
   async getWorkerStats(workerId) {
     if (!workerId) throw new ValidationError('workerId is required.');
-    const [taskSnap, ratingSnap] = await Promise.all([
+    const [taskSnap, ratingSnap, feedbackSnap] = await Promise.all([
       db.collection('obhs_tasks').where('submittedBy.id', '==', workerId).limit(200).get(),
-      db.collection('worker_ratings').where('workerId', '==', workerId).limit(200).get()
+      db.collection('worker_ratings').where('workerId', '==', workerId).limit(200).get(),
+      db.collection('obhs_feedbacks').where('workerId', '==', workerId).limit(200).get(),
     ]);
     const taskStats = { total: 0, completed: 0 };
     taskSnap.forEach(doc => {
@@ -492,6 +507,30 @@ async submitFeedback(userData, body) {
       categories[d.category].total += Number(d.score) || 0;
       categories[d.category].count++;
     });
+    const recentFeedbacks = [];
+    feedbackSnap.forEach(doc => {
+      const feedback = { feedbackId: doc.id, ...doc.data() };
+      const parameterRatings = Object.values(feedback.ratings || {})
+        .map(Number)
+        .filter(Number.isFinite);
+      const score = Number(feedback.overallRating) ||
+        (parameterRatings.length
+          ? parameterRatings.reduce((sum, value) => sum + value, 0) / parameterRatings.length
+          : 0);
+      totalScore += score;
+      ratingCount++;
+      Object.entries(feedback.ratings || {}).forEach(([category, rawValue]) => {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) return;
+        if (!categories[category]) categories[category] = { total: 0, count: 0 };
+        categories[category].total += value;
+        categories[category].count++;
+      });
+      recentFeedbacks.push(feedback);
+    });
+    recentFeedbacks.sort((a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+    );
     return {
       workerId,
       taskStats: {
@@ -507,7 +546,8 @@ async submitFeedback(userData, body) {
           average: parseFloat((v.total / v.count).toFixed(2)),
           count: v.count
         }))
-      }
+      },
+      recentFeedbacks,
     };
   }
 

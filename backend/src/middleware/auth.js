@@ -54,6 +54,7 @@ export const verifyToken = asyncHandler(async (req, res, next) => {
     entityDetails: entityDetails,
     contractId: userData.contractId || null,
     contractType: userData.contractType || null,
+    workerType: userData.worker_type || userData.workerType || null,
     stations: userData.stations || [],
     domain: userData.domain || null
   };

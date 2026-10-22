@@ -261,6 +261,13 @@ class V2Service {
     if (!doc.exists) throw new NotFoundError('Task instance not found');
 
     const taskData = doc.data();
+    const role = String(user.role || '').toUpperCase().replace(/\s+/g, '_');
+    if (['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'].includes(role)) {
+      const assignedWorkerId = taskData.workerId || taskData.assignedTo;
+      if (assignedWorkerId !== user.uid) {
+        throw new ForbiddenError('You can only submit tasks assigned to you.');
+      }
+    }
     if (['COMPLETED', 'VERIFIED', 'CLOSED', 'NOT_APPLICABLE'].includes(taskData.status)) {
       throw new ValidationError(`Task already in final state: ${taskData.status}`);
     }
@@ -728,7 +735,7 @@ class V2Service {
     return { message: `Completed ${snapshot.size} closure tasks` };
   }
 
-  async getWorkerMyTasks(workerId, query = {}) {
+  async getWorkerMyTasks(workerId, query = {}, user = {}) {
     const { status: filterStatus } = query;
 
     const runsSnap = await db.collection('RunInstance')
@@ -769,6 +776,28 @@ class V2Service {
     taskSnap.forEach(doc => tasks.push(doc.data()));
 
     tasks = tasks.filter(t => assignedCoachNos.includes(t.coachNo));
+
+    const role = String(user.role || '').toUpperCase().replace(/\s+/g, '_');
+    const workerType = String(user.workerType || user.worker_type || '').toUpperCase();
+    const isAttendant = role === 'ATTENDANT' || workerType === 'ATTENDANT';
+    const isJanitor = role === 'JANITOR' || workerType === 'JANITOR';
+    const attendantTaskTypes = new Set(['LINEN_CHANGE', 'BERTH_INSPECTION']);
+    tasks = tasks.filter(task => {
+      const assignedWorkerId = task.workerId || task.assignedTo;
+      if (assignedWorkerId !== workerId) return false;
+
+      const taskType = String(task.taskType || '').toUpperCase();
+      const taskWorkerType = String(task.workerType || '').toUpperCase();
+      const isAttendantTask =
+        taskWorkerType === 'ATTENDANT' ||
+        attendantTaskTypes.has(taskType) ||
+        taskType.includes('LINEN') ||
+        taskType.includes('BERTH');
+
+      if (isAttendant) return isAttendantTask;
+      if (isJanitor) return !isAttendantTask;
+      return true;
+    });
 
     if (myCoachTasks) {
       tasks = tasks.filter(t => {

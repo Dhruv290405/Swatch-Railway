@@ -10,7 +10,6 @@ import '../services/api_services.dart';
 import '../controller/contractor_nav_controller.dart';
 
 class CTSFormController extends GetxController {
-
   final currentStep = 0.obs;
   final isSubmitting = false.obs;
   final isLoadingContracts = false.obs;
@@ -20,7 +19,7 @@ class CTSFormController extends GetxController {
   bool isResubmit = false;
   String? formId;
   String? contractorRemarks;
-  
+
   final userRole = Rx<String?>(null);
   final selectedZone = Rx<String?>(null);
   final selectedDivision = Rx<String?>(null);
@@ -168,7 +167,7 @@ class CTSFormController extends GetxController {
       final entityId = user['entityId'];
       final zone = user['zone'] ?? '';
       final division = user['division'] ?? '';
-      
+
       userRole.value = user['role'];
 
       depotName.value = user['depot'] ?? 'N/A';
@@ -224,7 +223,6 @@ class CTSFormController extends GetxController {
     }
   }
 
-
   Future<void> fetchSupervisors({String? zone, String? division}) async {
     try {
       isLoadingSupervisors.value = true;
@@ -258,7 +256,8 @@ class CTSFormController extends GetxController {
         supervisors.value = supervisorsList
             .map((e) => RailwaySupervisor.fromJson(e))
             .toList();
-        if (selectedSupervisor.value != null && !supervisors.any((s) => s.uid == selectedSupervisor.value!.uid)) {
+        if (selectedSupervisor.value != null &&
+            !supervisors.any((s) => s.uid == selectedSupervisor.value!.uid)) {
           selectedSupervisor.value = null;
         }
       } else {
@@ -364,8 +363,7 @@ class CTSFormController extends GetxController {
   }
 
   bool validateStep3() {
-    if (garbageDisposed.value &&
-        selectedDisposalLocation.value.isEmpty) {
+    if (garbageDisposed.value && selectedDisposalLocation.value.isEmpty) {
       Get.snackbar(
         'Validation Error',
         'Please select disposal location',
@@ -408,10 +406,11 @@ class CTSFormController extends GetxController {
 
   Future<void> selectDateTime(
     BuildContext context,
-    Rx<DateTime?> dateTimeObservable,
-    {DateTime? initialDateTime}
-  ) async {
-    final initial = initialDateTime ?? dateTimeObservable.value ?? DateTime.now();
+    Rx<DateTime?> dateTimeObservable, {
+    DateTime? initialDateTime,
+  }) async {
+    final initial =
+        initialDateTime ?? dateTimeObservable.value ?? DateTime.now();
 
     final pickedDate = await showDatePicker(
       context: context,
@@ -456,7 +455,9 @@ class CTSFormController extends GetxController {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Work end time cannot be before work start time'),
+                  content: Text(
+                    'Work end time cannot be before work start time',
+                  ),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -607,12 +608,14 @@ class CTSFormController extends GetxController {
 
     staffMembers.clear();
     for (var staff in form.attendanceStaff) {
-      staffMembers.add(StaffMember(
-        nameController: TextEditingController(text: staff.name),
-        staffIdController: TextEditingController(text: staff.staffId),
-        roleController: TextEditingController(text: staff.role),
-        remarksController: TextEditingController(text: staff.remarks),
-      ));
+      staffMembers.add(
+        StaffMember(
+          nameController: TextEditingController(text: staff.name),
+          staffIdController: TextEditingController(text: staff.staffId),
+          roleController: TextEditingController(text: staff.role),
+          remarksController: TextEditingController(text: staff.remarks),
+        ),
+      );
     }
 
     garbageDisposed.value = form.garbageDisposed;
@@ -631,6 +634,33 @@ class CTSFormController extends GetxController {
   }
 
   Future<void> submitForm(BuildContext context) async {
+    if (!isResubmit &&
+        (selectedTrain.value?.uid == null ||
+            selectedTrain.value!.uid!.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a train before submitting'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!isResubmit && contractUidString.value.trim().isEmpty) {
+      await loadContracts();
+      if (contractUidString.value.trim().isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No CTS contract is available for this account'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
     if (selectedSupervisor.value == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -653,8 +683,11 @@ class CTSFormController extends GetxController {
     try {
       isSubmitting.value = true;
 
-      final duration = workEndDateTime.value != null && workStartDateTime.value != null
-          ? workEndDateTime.value!.difference(workStartDateTime.value!).inMinutes
+      final duration =
+          workEndDateTime.value != null && workStartDateTime.value != null
+          ? workEndDateTime.value!
+                .difference(workStartDateTime.value!)
+                .inMinutes
           : 0;
 
       List<Map<String, String>> attendance = staffMembers.map((s) {
@@ -685,7 +718,9 @@ class CTSFormController extends GetxController {
           coachesAttended: selectedCoachesAttended.value,
           attendanceStaff: attendance,
           garbageDisposed: garbageDisposed.value,
-          nominatedLocation: garbageDisposed.value ? selectedDisposalLocation.value : '',
+          nominatedLocation: garbageDisposed.value
+              ? selectedDisposalLocation.value
+              : '',
           occupiedToilets: occupiedToiletsCount.value,
           notes: notesController.text.trim(),
           resubmitSign: {
@@ -696,7 +731,7 @@ class CTSFormController extends GetxController {
       } else {
         await ApiService.submitCTSForm(
           trainId: selectedTrain.value!.uid ?? '',
-          contractId: contractUidString.value,
+          contractId: contractUidString.value.trim(),
           formDateTime: jobDateTime.value.toIso8601String(),
           platform: platformNumber.value.toString(),
           actArrival: actualArrivalDateTime.value?.toIso8601String() ?? '',
@@ -709,7 +744,9 @@ class CTSFormController extends GetxController {
           coachesAttended: selectedCoachesAttended.value,
           attendanceStaff: attendance,
           garbageDisposed: garbageDisposed.value,
-          nominatedLocation: garbageDisposed.value ? selectedDisposalLocation.value : '',
+          nominatedLocation: garbageDisposed.value
+              ? selectedDisposalLocation.value
+              : '',
           occupiedToilets: occupiedToiletsCount.value,
           notes: notesController.text.trim(),
           submittedTo: {

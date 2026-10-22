@@ -20,6 +20,7 @@ class UserModel {
   final List<String> stations;
   final String? status;
   final String? workerType; // 'Janitor' or 'Attendant' for OBHS workers
+  final List<String>? trainIds;
   final String? trainId;
   final DateTime? createdAt;
   final DateTime? submittedAt;
@@ -119,6 +120,9 @@ class UserModel {
       domain: user['domain'],
       stations: (user['stations'] as List?)?.cast<String>() ?? [],
       workerType: (user['worker_type'] ?? user['workerType']) as String?,
+      trainIds: (user['trainIds'] ?? user['train_ids']) != null
+          ? List<String>.from((user['trainIds'] ?? user['train_ids']) as List)
+          : null,
       status: user['status'],
       createdAt: _parseTimestamp(user['createdAt']),
       submittedAt: _parseTimestamp(user['submitted_at']),
@@ -150,6 +154,9 @@ class UserModel {
       domain: json['domain'],
       stations: (json['stations'] as List?)?.cast<String>() ?? [],
       workerType: (json['worker_type'] ?? json['workerType']) as String?,
+      trainIds: (json['trainIds'] ?? json['train_ids']) != null
+          ? List<String>.from((json['trainIds'] ?? json['train_ids']) as List)
+          : null,
       status: json['status'],
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
@@ -185,6 +192,7 @@ class UserModel {
       'domain': domain,
       'stations': stations,
       if (workerType != null) 'workerType': workerType,
+      if (trainIds != null) 'trainIds': trainIds,
       'status': status,
       'createdAt': createdAt?.toIso8601String(),
       'submittedAt': submittedAt?.toIso8601String(),

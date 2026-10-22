@@ -598,6 +598,27 @@ class WorkerRepository {
     }
   }
 
+  /// Gets an active run assignment for a worker. Cross-worker lookups are
+  /// restricted by the backend to inspection and management roles.
+  static Future<Map<String, dynamic>> getRunAssignmentForWorker(String workerId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('AUTH_ERROR');
+
+    final uri = Uri.parse('$baseUrl/api/run-instances/active-run')
+        .replace(queryParameters: {'workerId': workerId});
+    final response = await _handleRequest(
+      () => http.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception(ApiErrorHandler.getErrorMessage(response.body, response.statusCode));
+  }
+
   /// GET /api/obhs/complaints?runInstanceId=...
   /// Fetches all complaints for a given run instance.
   /// Returns empty list gracefully if the endpoint is not yet available.

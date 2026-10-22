@@ -1,12 +1,12 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { forbidContractType } from '../middleware/authorization.js';
+import { authorizeObhsContractAccess } from '../middleware/authorization.js';
 import * as obhsController from '../controllers/obhsController.js';
 import { compareFaces } from '../services/rekognitionService.js';
 
 const router = express.Router();
 
-router.all('/api/obhs*', verifyToken, forbidContractType('station_cleaning', 'mcc'));
+router.all('/api/obhs*', verifyToken, authorizeObhsContractAccess);
 
 // POST/GET at collection root (no param collision)
 router.post('/api/obhs', verifyToken, obhsController.submit);

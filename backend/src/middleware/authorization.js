@@ -117,6 +117,55 @@ export function forbidContractType(...forbiddenTypes) {
   };
 }
 
+export function authorizeObhsContractAccess(req, res, next) {
+  const contractType = req.user?.contractType;
+  const role = (req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
+  const workerType = (req.user?.workerType || '').toUpperCase();
+
+  if (contractType === 'station_cleaning') {
+    const isStationWorker =
+      role === 'JANITOR' ||
+      role === 'ATTENDANT' ||
+      (role === 'WORKER' && ['JANITOR', 'ATTENDANT'].includes(workerType));
+    const method = req.method.toUpperCase();
+    const path = (req.originalUrl || req.path).split('?')[0];
+    const allowedWorkerEndpoints = new Set([
+      'GET /api/obhs/tasks/board',
+      'POST /api/obhs/tasks/submit',
+      'GET /api/obhs/attendance/status',
+      'POST /api/obhs/attendance',
+      'GET /api/obhs/worker/active-run',
+      'POST /api/obhs/complaints/raise',
+      'GET /api/obhs/feedback/worker-summary',
+      'POST /api/obhs/feedback/passenger',
+    ]);
+    const isRunScopedComplaintList =
+      method === 'GET' &&
+      path === '/api/obhs/complaints' &&
+      Boolean(req.query?.runInstanceId);
+
+    if (
+      isStationWorker &&
+      (allowedWorkerEndpoints.has(`${method} ${path}`) ||
+        isRunScopedComplaintList)
+    ) {
+      return next();
+    }
+
+    throw new ForbiddenError(
+      `Access denied. Users with contract type "${contractType}" cannot access this resource.`,
+    );
+  }
+
+  if (contractType === 'mcc') {
+    throw new ForbiddenError(
+      `Access denied. Users with contract type "${contractType}" cannot access this resource.`,
+    );
+  }
+
+  next();
+}
+
 export function requireMasterAccess(minRole) {
   return (req, res, next) => {
     const role = (req.user?.role || '').toUpperCase();

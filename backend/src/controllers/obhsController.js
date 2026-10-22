@@ -243,7 +243,7 @@ export const getFeedbackWorkerSummary = asyncHandler(async (req, res) => {
 
 export const getTaskBoard = asyncHandler(async (req, res) => {
   const { v2Service } = await import('../services/v2Service.js');
-  const result = await v2Service.getWorkerMyTasks(req.user.uid, req.query);
+  const result = await v2Service.getWorkerMyTasks(req.user.uid, req.query, req.user);
   res.status(200).json(result);
 });
 

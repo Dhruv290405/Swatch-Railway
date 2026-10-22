@@ -1,12 +1,11 @@
 import 'package:crm_train/controllers/worker_controller.dart';
 import 'package:crm_train/model/user_model.dart';
-import 'package:crm_train/model/station_run_model.dart';
 import 'package:crm_train/repositories/station_run_repository.dart';
 import 'package:crm_train/view/common_workers/worker_attendance_screen.dart';
 import 'package:crm_train/view/common_workers/worker_complaints_screen.dart';
 import 'package:crm_train/view/common_workers/worker_mobile_home_screen.dart';
 import 'package:crm_train/view/common_workers/worker_rating_screen.dart';
-import 'package:crm_train/view/station_cleaning/worker_tasks/worker_task_view_screen.dart';
+import 'package:crm_train/view/common_workers/worker_task_screen.dart';
 import 'package:crm_train/view/station_cleaning/attendance/worker_attendance_screen.dart'
     as station_cleaning;
 import 'package:flutter/material.dart';
@@ -56,7 +55,7 @@ class _WorkerMobileNavBarState extends State<WorkerMobileNavBar> {
         colorBehindNavBar: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -69,9 +68,8 @@ class _WorkerMobileNavBarState extends State<WorkerMobileNavBar> {
   List<Widget> _buildScreens() {
     return [
       WorkerMobileHomeScreen(),
-      WorkerTaskViewScreen(workerId: widget.user.uid, workerName: widget.user.fullName),
-      // ── Station Cleaning Attendance tab: hidden (commented) per requirement ──
-      // const _AttendanceTab(),
+      const WorkerTaskScreen(),
+      const WorkerAttendanceScreen(),
       WorkerComplaintsScreen(),
       const WorkerRatingScreen(isOfficialMode: false),
     ];
@@ -91,13 +89,12 @@ class _WorkerMobileNavBarState extends State<WorkerMobileNavBar> {
         activeColorPrimary: kRailwayBlue,
         inactiveColorPrimary: Colors.grey,
       ),
-      // ── Station Cleaning Attendance tab: hidden (commented) per requirement ──
-      // PersistentBottomNavBarItem(
-      //   icon: const Icon(Icons.description),
-      //   title: "Attendance",
-      //   activeColorPrimary: kRailwayBlue,
-      //   inactiveColorPrimary: Colors.grey,
-      // ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.fingerprint_rounded),
+        title: "Attendance",
+        activeColorPrimary: kRailwayBlue,
+        inactiveColorPrimary: Colors.grey,
+      ),
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.report_rounded),
         title: "Complaints",
@@ -166,18 +163,50 @@ class _AttendanceTabState extends State<_AttendanceTab> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _typeBtn(ctx, user?.uid ?? '', user?.fullName ?? '', 'start', 'Start Attendance', Icons.play_arrow, Colors.green),
+            _typeBtn(
+              ctx,
+              user?.uid ?? '',
+              user?.fullName ?? '',
+              'start',
+              'Start Attendance',
+              Icons.play_arrow,
+              Colors.green,
+            ),
             const SizedBox(height: 8),
-            _typeBtn(ctx, user?.uid ?? '', user?.fullName ?? '', 'mid', 'Mid Attendance', Icons.pause, Colors.orange),
+            _typeBtn(
+              ctx,
+              user?.uid ?? '',
+              user?.fullName ?? '',
+              'mid',
+              'Mid Attendance',
+              Icons.pause,
+              Colors.orange,
+            ),
             const SizedBox(height: 8),
-            _typeBtn(ctx, user?.uid ?? '', user?.fullName ?? '', 'end', 'End Attendance', Icons.stop, Colors.red),
+            _typeBtn(
+              ctx,
+              user?.uid ?? '',
+              user?.fullName ?? '',
+              'end',
+              'End Attendance',
+              Icons.stop,
+              Colors.red,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _typeBtn(BuildContext context, String workerId, String workerName, String type, String label, IconData icon, Color color) {
+  Widget _typeBtn(
+    BuildContext context,
+    String workerId,
+    String workerName,
+    String type,
+    String label,
+    IconData icon,
+    Color color,
+  ) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -198,7 +227,11 @@ class _AttendanceTabState extends State<_AttendanceTab> {
         },
         icon: Icon(icon),
         label: Text(label),
-        style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
       ),
     );
   }
@@ -211,7 +244,10 @@ class _AttendanceTabState extends State<_AttendanceTab> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Attendance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Attendance',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: kRailwayBlue,
       ),
       body: Center(
@@ -220,7 +256,10 @@ class _AttendanceTabState extends State<_AttendanceTab> {
           children: [
             const Icon(Icons.cleaning_services, size: 64, color: Colors.teal),
             const SizedBox(height: 16),
-            const Text('Station Cleaning Attendance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Station Cleaning Attendance',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _openTypeDialog,
@@ -229,7 +268,10 @@ class _AttendanceTabState extends State<_AttendanceTab> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: kRailwayBlue,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 14,
+                ),
               ),
             ),
           ],

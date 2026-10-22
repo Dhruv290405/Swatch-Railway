@@ -7,8 +7,14 @@ class AuditService {
     const { action, actorId, targetId, startDate, endDate, limit = 50, offset = 0 } = filters;
     const maxLimit = Math.min(parseInt(limit), 200);
 
-    let query = db.collection('audit_logs').orderBy('timestamp', 'desc');
-    if (action) query = query.where('action', '==', action);
+    let query = db.collection('audit_logs');
+    if (action) {
+      // A filtered audit query with orderBy(timestamp) requires a composite
+      // Firestore index. Filter first and sort the small result set in memory.
+      query = query.where('action', '==', action);
+    } else {
+      query = query.orderBy('timestamp', 'desc');
+    }
     
     // Some services log 'userId', others log 'actorId'
     if (actorId && !filters.userId) query = query.where('actorId', '==', actorId);
@@ -40,6 +46,17 @@ class AuditService {
         type: data.targetType || data.type || data.action || 'Activity'
       });
     });
+
+    if (action) {
+      const toMillis = value => {
+        if (value && typeof value.toDate === 'function') return value.toDate().getTime();
+        const parsed = value == null ? NaN : new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      logs.sort((a, b) =>
+        toMillis(b.timestamp || b.createdAt) - toMillis(a.timestamp || a.createdAt),
+      );
+    }
 
     return { count: logs.length, logs };
   }

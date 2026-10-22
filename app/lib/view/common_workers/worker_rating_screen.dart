@@ -1076,20 +1076,14 @@ class _SubmitRatingScreenState extends State<SubmitRatingScreen> {
   String? _selectedWorkerId;
   bool _isLoadingWorkers = false;
 
-  List<String> _officialCoaches = [
-    'S1', 'S2', 'S3', 'S4', 'S5',
-    'A1', 'A2', 'B1', 'B2',
-    'F1', 'F2', 'G1', 'H1',
-  ];
+  List<String> _officialCoaches = [];
   bool _isFetchingOfficialCoaches = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.isOfficialMode) {
-      _fetchActiveRunCoaches().then((_) {
-        _fetchWorkers();
-      });
+      _fetchWorkers();
     } else {
       _trainFocusNode.addListener(_onTrainFocusChange);
     }
@@ -1126,24 +1120,45 @@ class _SubmitRatingScreenState extends State<SubmitRatingScreen> {
     }
   }
 
-  Future<void> _fetchActiveRunCoaches() async {
-    if (Get.isRegistered<WorkerController>()) {
-      final controller = Get.find<WorkerController>();
-      final tNo = controller.trainNo;
-      if (tNo.isNotEmpty) {
-        setState(() => _isFetchingOfficialCoaches = true);
-        try {
-          final coaches = await PassengerService.fetchCoachesForTrain(tNo);
-          if (coaches.isNotEmpty && mounted) {
-            setState(() {
-              _officialCoaches = coaches;
-            });
-          }
-        } catch (e) {
-          debugPrint('Failed to fetch official coaches: $e');
-        } finally {
-          if (mounted) setState(() => _isFetchingOfficialCoaches = false);
-        }
+  Future<void> _fetchOfficialCoachesForWorker(String workerId) async {
+    if (workerId.isEmpty) return;
+    if (mounted) {
+      setState(() {
+        _isFetchingOfficialCoaches = true;
+        _officialCoaches = [];
+        _selectedCoach = null;
+      });
+    }
+
+    try {
+      final assignment = await WorkerRepository.getRunAssignmentForWorker(workerId);
+      final rawCoaches = assignment['coaches'] as List? ?? [];
+      final attached = <String>{};
+      for (final raw in rawCoaches) {
+        if (raw is! Map) continue;
+        final coach = Map<String, dynamic>.from(raw);
+        final janitorId = (coach['janitorId'] ?? coach['workerId'])?.toString();
+        final attendantId = coach['attendantId']?.toString();
+        if (janitorId != workerId && attendantId != workerId) continue;
+
+        final label = (coach['coachPosition'] ?? coach['coachNo'] ?? coach['coachType'])
+            ?.toString()
+            .trim();
+        if (label != null && label.isNotEmpty) attached.add(label);
+      }
+
+      if (mounted && _selectedWorkerId == workerId) {
+        final coaches = attached.toList()..sort();
+        setState(() {
+          _officialCoaches = coaches;
+          if (coaches.length == 1) _selectedCoach = coaches.first;
+        });
+      }
+    } catch (e) {
+      debugPrint('Could not load coaches assigned to $workerId: $e');
+    } finally {
+      if (mounted && _selectedWorkerId == workerId) {
+        setState(() => _isFetchingOfficialCoaches = false);
       }
     }
   }
@@ -1189,18 +1204,12 @@ class _SubmitRatingScreenState extends State<SubmitRatingScreen> {
                 _inspectorController.text = controller.workerName.isNotEmpty ? controller.workerName : 'Worker';
               }
 
-              // Pre-select worker's assigned coach
-              final assigned = controller.assignedCoaches;
-              if (assigned.isNotEmpty) {
-                final coachVal = assigned.first;
-                if (!_officialCoaches.contains(coachVal)) {
-                  _officialCoaches.insert(0, coachVal);
-                }
-                _selectedCoach = coachVal;
-              }
             }
           }
         });
+        if (_selectedWorkerId != null) {
+          await _fetchOfficialCoachesForWorker(_selectedWorkerId!);
+        }
       }
     } catch (e) {
       debugPrint('Error fetching workers: $e');
@@ -1479,7 +1488,16 @@ class _SubmitRatingScreenState extends State<SubmitRatingScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) => setState(() => _selectedWorkerId = val),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedWorkerId = val;
+                        _selectedCoach = null;
+                        _officialCoaches = [];
+                        _overallRating = 0;
+                        _paramRatings.clear();
+                      });
+                      if (val != null) _fetchOfficialCoachesForWorker(val);
+                    },
                   ),
                 ),
               ),
@@ -1581,7 +1599,13 @@ class _SubmitRatingScreenState extends State<SubmitRatingScreen> {
                     : DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedCoach != null && _officialCoaches.contains(_selectedCoach) ? _selectedCoach : null,
-                          hint: const Text('Choose a coach'),
+                          hint: Text(
+                            _selectedWorkerId == null
+                                ? 'Select a worker first'
+                                : _officialCoaches.isEmpty && !_isFetchingOfficialCoaches
+                                    ? 'No coaches attached to this worker'
+                                    : 'Choose an assigned coach',
+                          ),
                           isExpanded: true,
                           items: _officialCoaches
                               .map((c) =>

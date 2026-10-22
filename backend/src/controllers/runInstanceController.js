@@ -1,6 +1,7 @@
 import { db } from '../database/index.js';
 import { runInstanceService } from '../services/runInstanceService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { ForbiddenError } from '../errors/index.js';
 
 export const create = asyncHandler(async (req, res) => {
   const result = await runInstanceService.createRunInstance(req.user, req.body);
@@ -81,7 +82,17 @@ export const completeJourney = asyncHandler(async (req, res) => {
 });
 
 export const getActiveRunForWorker = asyncHandler(async (req, res) => {
-  const result = await runInstanceService.getActiveRunForWorker(req.user.uid, req.query.trainNo);
+  const workerId = req.query.workerId || req.user.uid;
+  const role = String(req.user.role || '').toUpperCase().replace(/\s+/g, '_');
+  const canViewOtherWorkers = new Set([
+    'SUPER_ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN',
+    'RAILWAY_ADMIN', 'RAILWAY_INSPECTOR', 'RAILWAY_SUPERVISOR',
+    'CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR', 'CTS',
+  ]);
+  if (workerId !== req.user.uid && !canViewOtherWorkers.has(role)) {
+    throw new ForbiddenError('You can only view your own run assignments.');
+  }
+  const result = await runInstanceService.getActiveRunForWorker(workerId, req.query.trainNo);
   if (!result) return res.status(404).json({ error: 'No active run found' });
   res.status(200).json(result);
 });
