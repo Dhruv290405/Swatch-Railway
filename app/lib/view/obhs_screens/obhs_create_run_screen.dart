@@ -1430,7 +1430,7 @@ class _OBHSCreateInstanceScreenState extends State<OBHSCreateInstanceScreen> {
         for (final c in coaches) {
           if (c.assignedJanitorId == w.uid) count++;
         }
-        if (count >= 3) return false; // Janitor max 3 coaches
+        if (count >= 2) return false; // Janitor max 2 coaches
       } else {
         // Attendant can only be assigned to 1 coach
         if (assignedIds.contains(w.uid)) return false;

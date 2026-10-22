@@ -119,7 +119,9 @@ class _PerformanceBillingScreenState extends State<PerformanceBillingScreen> {
     // Gate generation on a configured cleaning rate.
     try {
       final config = await ApiService.getPerformanceBillingConfig(_resolvedContractId!);
-      if (config.ratePerSqft == null || config.ratePerSqft! <= 0) {
+      final hasWeightages = config.areaWeightages.isNotEmpty;
+      final useWeightageMode = hasWeightages && config.annualContractValue > 0;
+      if ((config.ratePerSqft == null || config.ratePerSqft! <= 0) && !useWeightageMode) {
         if (!mounted) return;
         final open = await showDialog<bool>(
           context: context,

@@ -214,20 +214,20 @@ class RunInstanceService {
 
     const { uid, name, email, role, division: userDivision, zone: userZone } = creatorData;
     const workerCoachCount = {};
-    // The mobile UI allows up to 3 coaches per worker (obhs_create_run_screen),
-    // so match that limit here instead of rejecting valid assignments.
-    const MAX_COACHES_PER_WORKER = 3;
+    // One janitor is assigned exactly 2 coaches; an attendant only 1 (AC coach).
+    const MAX_JANITOR_COACHES = 2;
+    const MAX_ATTENDANT_COACHES = 1;
     for (const c of coachesWithNames) {
       if (c.workerId) {
         workerCoachCount[c.workerId] = (workerCoachCount[c.workerId] || 0) + 1;
-        if (workerCoachCount[c.workerId] > MAX_COACHES_PER_WORKER) {
-          throw new ValidationError('Coach Assignment Limit', `Worker ${c.workerId} has been assigned to more than ${MAX_COACHES_PER_WORKER} coaches. Maximum ${MAX_COACHES_PER_WORKER} coaches per worker allowed.`);
+        if (workerCoachCount[c.workerId] > MAX_JANITOR_COACHES) {
+          throw new ValidationError('Coach Assignment Limit', `Worker ${c.workerId} has been assigned to more than ${MAX_JANITOR_COACHES} coaches. Maximum ${MAX_JANITOR_COACHES} coaches per worker allowed.`);
         }
       }
       if (c.attendantId) {
         workerCoachCount[c.attendantId] = (workerCoachCount[c.attendantId] || 0) + 1;
-        if (workerCoachCount[c.attendantId] > MAX_COACHES_PER_WORKER) {
-          throw new ValidationError('Coach Assignment Limit', `Worker ${c.attendantId} has been assigned to more than ${MAX_COACHES_PER_WORKER} coaches. Maximum ${MAX_COACHES_PER_WORKER} coaches per worker allowed.`);
+        if (workerCoachCount[c.attendantId] > MAX_ATTENDANT_COACHES) {
+          throw new ValidationError('Coach Assignment Limit', `Worker ${c.attendantId} has been assigned to more than ${MAX_ATTENDANT_COACHES} coaches. Maximum ${MAX_ATTENDANT_COACHES} coaches per worker allowed.`);
         }
       }
 
