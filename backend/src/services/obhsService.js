@@ -17,6 +17,26 @@ class ObhsService {
     }
     const { uid: workerId, fullName: workerName } = userData;
     const finalWorkerName = workerName || 'Unknown Worker';
+
+    // Attendance may only be marked against a run the worker is assigned to.
+    // Legacy runs may not carry assignment data at all; only enforce the check
+    // when the run actually records who is assigned (keeps live APKs working).
+    const assignedRunDoc = await db.collection('RunInstance').doc(runInstanceId).get();
+    if (!assignedRunDoc.exists) throw new NotFoundError('Run instance not found.');
+    const assignedRun = assignedRunDoc.data();
+    const coaches = Array.isArray(assignedRun.coaches) ? assignedRun.coaches : [];
+    const hasAssignmentData =
+      coaches.some(c => c.workerId || c.janitorId || c.attendantId) ||
+      Boolean(assignedRun.workerId || assignedRun.janitorId || assignedRun.attendantId);
+    if (hasAssignmentData) {
+      const isAssigned =
+        coaches.some(c => c.workerId === workerId || c.janitorId === workerId || c.attendantId === workerId) ||
+        assignedRun.workerId === workerId ||
+        assignedRun.janitorId === workerId ||
+        assignedRun.attendantId === workerId;
+      if (!isAssigned) throw new ForbiddenError('You are not assigned to this run instance.');
+    }
+
     let isLateAttendance = false;
     let lateByMinutes = 0;
     let firstAttendanceTime = null;
@@ -1078,7 +1098,8 @@ async submitFeedback(userData, body) {
     let myCoaches = [];
     for (const r of runs) {
       const coaches = r.coaches || [];
-      const assigned = coaches.filter(c => c.workerId === uid || c.attendantId === uid);
+      const assigned = coaches.filter(c =>
+        c.workerId === uid || c.janitorId === uid || c.attendantId === uid);
       if (assigned.length > 0) {
         runDoc = r;
         myCoaches = assigned;

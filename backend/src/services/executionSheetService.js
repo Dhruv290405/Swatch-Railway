@@ -408,6 +408,18 @@ class ExecutionSheetService {
     }
   }
 
+  // Monthly BOQ requirement for one mapped area, straight from the area master:
+  // daily = boqTimesPerPeriod per day, weekly/monthly scaled to the month.
+  _expectedPassesForMonth(area, monthDays) {
+    const freq = String(area?.cleaningFrequency || area?.frequency || '').toLowerCase();
+    const boqTimes = parseInt(area?.boqTimesPerPeriod, 10) || 1;
+    if (freq === 'monthly') return boqTimes;
+    if (freq === 'weekly') return boqTimes * (monthDays / 7);
+    const requiredPassesPerDay = Number(area?.requiredPassesPerDay) || 0;
+    if (requiredPassesPerDay > 0) return requiredPassesPerDay * monthDays;
+    return boqTimes * monthDays;
+  }
+
   _matchesMappedArea(mapped, mainArea, subArea) {
     if (!mapped || !mapped.mainArea || !mainArea) return false;
     if (String(mapped.mainArea).trim().toLowerCase() !== String(mainArea).trim().toLowerCase()) return false;
@@ -454,7 +466,7 @@ class ExecutionSheetService {
     const logs = [];
     snapshot.forEach((doc) => {
       const d = doc.data();
-      if (d.date && d.date.startsWith(prefix) && d.status === 'SUBMITTED') logs.push(d);
+      if (d.date && d.date.startsWith(prefix) && ['SUBMITTED', 'VERIFIED'].includes(d.status)) logs.push(d);
     });
 
     const shiftSummaries = await this._fetchAreaExecution(stationId, month, year);
@@ -462,8 +474,28 @@ class ExecutionSheetService {
     const itemScores = [];
     let executionScore = 0;
 
+    // Area master supplies the contractual BOQ frequency for each mapped area.
+    const areaMeta = {};
+    try {
+      const areasSnap = await db.collection('areas').where('stationId', '==', stationId).get();
+      areasSnap.forEach((d) => { areaMeta[d.id] = { areaId: d.id, ...d.data() }; });
+    } catch (_) { /* fall back to summary-carried frequency */ }
+
     for (const item of items) {
       const mappedAreas = item.mappedAreas || [];
+
+      // Contractual monthly requirement from the BOQ (area master), not just
+      // the days that happened to receive a summary.
+      let boqExpected = 0;
+      for (const m of mappedAreas) {
+        const areaId = this._resolveStationAreaId(m, areaMeta);
+        const area = areaId ? areaMeta[areaId] : null;
+        if (!area) continue;
+        const status = area.status === undefined ? 'active' : String(area.status).toLowerCase();
+        if (status !== 'active') continue;
+        boqExpected += this._expectedPassesForMonth(area, monthDays);
+      }
+
       let manualActual = 0;
       let naCount = 0;
       for (const log of logs) {
@@ -482,20 +514,36 @@ class ExecutionSheetService {
       let areaExpected = 0;
       const daysExecuted = new Set();
       if (mappedAreas.length > 0) {
+        // Expected frequency is per area per day, not per summary entry: a
+        // shift-wise area can appear once per shift without tripling its BOQ
+        // requirement. Actual times still accumulate across all shifts.
+        const areaStats = new Map();
         for (const summary of shiftSummaries) {
           for (const a of summary.areas || []) {
             if (!mappedAreas.some((m) => this._matchesMappedArea(m, a.mainArea, a.areaName))) continue;
-            const times = parseInt(a.times, 10) || 0;
-            areaActual += times;
-            areaExpected += this._expectedTimesForDay(a);
+            const key = `${String(a.mainArea || '').trim().toLowerCase()}|${String(a.areaName || '').trim().toLowerCase()}`;
+            let stat = areaStats.get(key);
+            if (!stat) {
+              stat = { actual: 0, dates: new Set(), expectedPerDay: this._expectedTimesForDay(a) };
+              areaStats.set(key, stat);
+            }
+            stat.actual += parseInt(a.times, 10) || 0;
+            stat.dates.add(summary.date);
             daysExecuted.add(summary.date);
           }
+        }
+        for (const stat of areaStats.values()) {
+          areaActual += stat.actual;
+          areaExpected += stat.expectedPerDay * stat.dates.size;
         }
       }
 
       const areaBased = mappedAreas.length > 0;
-      // Frequency-driven required (from area frequency x boqTimesPerPeriod).
-      const required = areaBased && areaExpected > 0 ? areaExpected : (item.requiredFrequencyPerMonth || 0);
+      // Contractual BOQ requirement first; fall back to observed frequency for
+      // legacy items with no resolvable area master, then to the configured value.
+      const required = boqExpected > 0
+        ? boqExpected
+        : (areaBased && areaExpected > 0 ? areaExpected : (item.requiredFrequencyPerMonth || 0));
       const actual = areaActual + manualActual;
       const notApplicable = naCount > 0;
       const achievedRatio = notApplicable || required <= 0
@@ -510,7 +558,7 @@ class ExecutionSheetService {
         mappedAreas,
         weightage: item.weightage,
         requiredFrequencyPerMonth: item.requiredFrequencyPerMonth || 0,
-        expectedFrequency: Math.round(areaExpected * 10) / 10,
+        expectedFrequency: Math.round(required * 10) / 10,
         actualFrequency: Math.round(actual * 10) / 10,
         areaExecution: areaActual,
         manualExecution: Math.round(manualActual * 10) / 10,

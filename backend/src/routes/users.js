@@ -8,6 +8,7 @@ const router = Router();
 
 router.post('/api/admin/createUser', verifyToken, requirePermission(PERMISSIONS.CREATE_USER), userController.createUser);
 router.put('/api/admin/updateUser/:uid', verifyToken, requirePermission(PERMISSIONS.UPDATE_USER), userController.updateUser);
+router.delete('/api/admin/deleteUser/:uid', verifyToken, requirePermission(PERMISSIONS.DELETE_USER), userController.deleteUser);
 router.post('/api/master/approveUser/:uid', verifyToken, requirePermission(PERMISSIONS.APPROVE_USER), userController.approveUser);
 router.get('/api/master/pending-users', verifyToken, requirePermission(PERMISSIONS.VIEW_USERS), userController.getPendingUsers);
 router.post('/api/master/rejectUser/:uid', verifyToken, requirePermission(PERMISSIONS.REJECT_USER), userController.rejectUser);

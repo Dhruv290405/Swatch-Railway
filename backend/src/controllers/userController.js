@@ -11,6 +11,11 @@ export const updateUser = asyncHandler(async (req, res) => {
   res.status(200).json(result);
 });
 
+export const deleteUser = asyncHandler(async (req, res) => {
+  const result = await userService.deleteUser(req.user, req.params.uid);
+  res.status(200).json(result);
+});
+
 export const approveUser = asyncHandler(async (req, res) => {
   const result = await userService.approveUser(req.user, req.params.uid);
   res.status(200).json(result);
@@ -94,4 +99,4 @@ export const submitWorkerComplaint = asyncHandler(async (req, res) => {
   res.status(201).json(result);
 });
 
-export default { createUser, updateUser, approveUser, getPendingUsers, rejectUser, suspendUser, getUsers, getRailwayWorkers, getWorkerProfile, getWorkerStatistics, getWorkers, getRailwaySupervisors, getContractorSupervisors, getWorkersPerformance, getUserById, getWorkerTasks, submitWorkerComplaint };
+export default { createUser, updateUser, deleteUser, approveUser, getPendingUsers, rejectUser, suspendUser, getUsers, getRailwayWorkers, getWorkerProfile, getWorkerStatistics, getWorkers, getRailwaySupervisors, getContractorSupervisors, getWorkersPerformance, getUserById, getWorkerTasks, submitWorkerComplaint };

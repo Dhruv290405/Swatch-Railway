@@ -101,6 +101,62 @@ class _UserEditScreenState extends State<UserEditScreen> {
     );
   }
 
+  bool _canDeleteUsers(String? role) {
+    final normalizedRole = (role ?? '').toUpperCase().replaceAll(' ', '_');
+    return const {
+      'SUPER_ADMIN',
+      'COMPANY_MASTER',
+      'RAILWAY_MASTER',
+      'ADMIN',
+      'RAILWAY_ADMIN',
+      'CONTRACTOR_MASTER',
+      'CONTRACTOR_ADMIN',
+    }.contains(normalizedRole);
+  }
+
+  Future<void> _deleteUser() async {
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    if (currentUser?.uid == widget.user.uid) {
+      _showError('You cannot delete your own account');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete User?'),
+        content: Text(
+          'Permanently delete ${widget.user.fullName ?? widget.user.email ?? 'this user'} and their sign-in account? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await ApiService.deleteUser(uid: widget.user.uid);
+      if (!mounted) return;
+      _showSuccess(result['message']?.toString() ?? 'User deleted successfully');
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) _showError('Failed to delete user: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   bool _shouldShowZone() {
     if (_selectedRole == null) return false;
     return true;
@@ -118,6 +174,9 @@ class _UserEditScreenState extends State<UserEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = Provider.of<AuthProvider>(context).currentUser;
+    final finalCanDelete =
+        _canDeleteUsers(currentUser?.role) && currentUser?.uid != widget.user.uid;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -448,6 +507,23 @@ class _UserEditScreenState extends State<UserEditScreen> {
                   onPressed: _submitForm,
                 ),
               ),
+              if (finalCanDelete) const SizedBox(height: 12),
+              if (finalCanDelete)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _deleteUser,
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                    label: const Text(
+                      'Delete User',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

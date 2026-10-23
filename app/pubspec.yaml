@@ -3,7 +3,7 @@ description: "Swachh Railway - CRM and Cleaning Management System for Indian Rai
 
 publish_to: 'none'
 
-version: 1.0.0+5
+version: 1.0.0+6
 
 environment:
   sdk: ^3.9.0

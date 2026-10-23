@@ -455,6 +455,67 @@ class UserService {
     return { message: `User "${targetUserName}" has been updated successfully.`, updates: updateData };
   }
 
+  async deleteUser(requester, uid) {
+    if (!uid) throw new ValidationError('User ID is required.');
+    if (uid === requester.uid) throw new ForbiddenError('You cannot delete your own account.');
+
+    const userDocRef = db.collection('users').doc(uid);
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) throw new NotFoundError('User not found.');
+
+    const target = userDoc.data();
+    const normalizeRole = role => String(role || '').toUpperCase().replace(/\s+/g, '_');
+    const requesterRole = normalizeRole(requester.role);
+    const targetRole = normalizeRole(target.role);
+    const hierarchy = {
+      SUPER_ADMIN: 100,
+      COMPANY_MASTER: 90,
+      RAILWAY_MASTER: 80,
+      ADMIN: 70,
+      RAILWAY_ADMIN: 60,
+      CONTRACTOR_MASTER: 47,
+      CONTRACTOR_ADMIN: 45,
+      CONTRACTOR_SUPERVISOR: 40,
+      CTS: 30,
+      WORKER: 10,
+      RAILWAY_WORKER: 10,
+      JANITOR: 10,
+      ATTENDANT: 10,
+      PASSENGER: 1,
+    };
+    if ((hierarchy[targetRole] || 0) >= (hierarchy[requesterRole] || 0)) {
+      throw new ForbiddenError('You can only delete users with a lower role than your own.');
+    }
+
+    if (
+      ['CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN'].includes(requesterRole) &&
+      (!requester.entityId || requester.entityId !== target.entityId)
+    ) {
+      throw new ForbiddenError('You can only delete users in your own company.');
+    }
+
+    // Remove the sign-in identity first. Ignore accounts that were already
+    // removed from Firebase Authentication, then remove the profile document.
+    try {
+      await db.deleteUser(uid);
+    } catch (error) {
+      if (error.code !== 'auth/user-not-found') throw error;
+    }
+    await userDocRef.delete();
+
+    await db.collection('audit_logs').add({
+      action: 'USER_DELETED',
+      actorId: requester.uid,
+      actorName: requester.fullName || requester.name || requester.role,
+      targetId: uid,
+      targetType: 'users',
+      details: `Deleted user ${target.fullName || target.email || uid}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return { success: true, message: `User ${target.fullName || target.email || uid} deleted successfully.` };
+  }
+
   async approveUser(approverData, uid) {
     const { uid: approverId, name, fullName, role, entityId } = approverData;
     const approverName = fullName || name || role || 'Master Admin';

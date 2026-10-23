@@ -21,8 +21,8 @@ describe('Role Definitions', () => {
     expect(Object.keys(ROLES).length).toBe(expected.length);
   });
 
-  it('all 108 permissions are defined', () => {
-    expect(Object.keys(PERMISSIONS).length).toBe(108);
+  it('all 123 permissions are defined', () => {
+    expect(Object.keys(PERMISSIONS).length).toBe(123);
   });
 
   it('each permission value is unique and non-empty', () => {

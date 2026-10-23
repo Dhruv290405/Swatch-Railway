@@ -179,11 +179,19 @@ class _ShiftSummaryScreenState extends State<ShiftSummaryScreen> {
       final grouped = <String, Map<String, dynamic>>{};
       for (final t in completed) {
         final areaId = (t['areaId'] ?? '').toString();
-        final key = '${t['uid'] ?? areaId}_$areaId';
+        final areaName = (t['areaName'] ?? '').toString();
+        final key = areaId.isNotEmpty ? areaId : 'area_$areaName';
+        final existing = grouped[key];
+        if (existing != null) {
+          // The same area can be cleaned several times (multiple tasks/shifts);
+          // keep one summary entry and count the passes.
+          existing['times'] = (existing['times'] as int) + 1;
+          continue;
+        }
         grouped[key] = {
           'key': key,
           'areaId': areaId,
-          'areaName': t['areaName'] ?? '',
+          'areaName': areaName,
           'mainArea': t['mainArea'] ?? '',
           'basicAreaSqFt': t['basicAreaSqFt'] ?? 0,
           'boqTimesPerPeriod': t['boqTimesPerPeriod'] ?? 1,

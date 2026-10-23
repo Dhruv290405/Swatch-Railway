@@ -266,6 +266,14 @@ class TaskManagementService {
     return 'night';
   }
 
+  // Station cleaning labels the 12:00-20:00 window "evening" while the generic
+  // shift module labels it "afternoon"; compare them as the same shift.
+  _normalizeShiftValue(shift) {
+    const value = String(shift || '').trim().toLowerCase();
+    if (!value) return '';
+    return value === 'evening' ? 'afternoon' : value;
+  }
+
   // The recorded shift of a contractor supervisor (null when never recorded).
   // Recording happens whenever tasks are generated for that supervisor + shift.
   async _getSupervisorShift(supervisorId) {
@@ -309,7 +317,7 @@ class TaskManagementService {
     const taskShift = task.shift ? String(task.shift).trim().toLowerCase() : null;
     if (taskShift) {
       const ownShift = await this._getOwnShift(uid);
-      if (ownShift && taskShift !== ownShift) {
+      if (ownShift && this._normalizeShiftValue(taskShift) !== this._normalizeShiftValue(ownShift)) {
         throw new ForbiddenError(`This task belongs to the ${taskShift} shift; you are assigned to ${ownShift}`);
       }
     }
@@ -420,7 +428,7 @@ class TaskManagementService {
     try {
       const assigned = await this._resolveAssignedShift(workerId);
       const attempt = String(task.shift || '').toLowerCase();
-      if (assigned && attempt && String(assigned).toLowerCase() !== attempt) {
+      if (assigned && attempt && this._normalizeShiftValue(assigned) !== this._normalizeShiftValue(attempt)) {
         return { shiftWarning: true, assignedShift: assigned, taskShift: attempt };
       }
     } catch (_) { /* never block an action due to a lookup failure */ }
@@ -807,7 +815,7 @@ class TaskManagementService {
     if (user && _SHIFT_SCOPED_ROLES.has(_normalizeRole(user.role))) {
       const ownShift = await this._getSupervisorShift(user.uid);
       if (ownShift) {
-        tasks = tasks.filter(t => !t.shift || String(t.shift).trim().toLowerCase() === ownShift);
+        tasks = tasks.filter(t => !t.shift || this._normalizeShiftValue(t.shift) === this._normalizeShiftValue(ownShift));
       }
     }
     // Today-only enforcement for contractor roles: they can never see (or
@@ -957,7 +965,7 @@ class TaskManagementService {
     if (user && _SHIFT_SCOPED_ROLES.has(_normalizeRole(user.role))) {
       const ownShift = await this._getSupervisorShift(user.uid);
       if (ownShift) {
-        tasks = tasks.filter(t => !t.shift || String(t.shift).trim().toLowerCase() === ownShift);
+        tasks = tasks.filter(t => !t.shift || this._normalizeShiftValue(t.shift) === this._normalizeShiftValue(ownShift));
       }
     }
     return { count: tasks.length, date, tasks };
@@ -1007,7 +1015,7 @@ class TaskManagementService {
     // shows tasks belonging to their recorded shift.
     const ownShift = await this._getSupervisorShift(supervisorId);
     if (ownShift) {
-      tasks = tasks.filter(t => !t.shift || String(t.shift).trim().toLowerCase() === ownShift);
+      tasks = tasks.filter(t => !t.shift || this._normalizeShiftValue(t.shift) === this._normalizeShiftValue(ownShift));
     }
     if (statusFilter) {
       tasks = tasks.filter(t => t.status === statusFilter);

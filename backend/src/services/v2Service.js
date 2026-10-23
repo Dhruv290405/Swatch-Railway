@@ -736,28 +736,55 @@ class V2Service {
   }
 
   async getWorkerMyTasks(workerId, query = {}, user = {}) {
-    const { status: filterStatus } = query;
-
-    const runsSnap = await db.collection('RunInstance')
-      .where('status', '==', 'Active')
-      .limit(200).get();
+    const { status: filterStatus, runInstanceId } = query;
 
     let myRun = null;
     let myCoaches = [];
     let myCoachTasks = null;
-    runsSnap.forEach(doc => {
+
+    const applyRun = (doc) => {
       const d = doc.data();
-      const assigned = (d.coaches || []).filter(c => c.workerId === workerId || c.attendantId === workerId);
-      if (assigned.length > 0) {
-        myRun = { ...d, runInstanceId: doc.id };
-        myCoaches = assigned.map(c => c.coachPosition || c.coachNo);
-        myCoachTasks = assigned.reduce((acc, c) => {
-          const cn = c.coachPosition || c.coachNo;
-          if (c.tasks && c.tasks.length > 0) acc[cn] = c.tasks.map(t => t.toLowerCase());
-          return acc;
-        }, {});
-      }
-    });
+      const assigned = (d.coaches || []).filter(c =>
+        c.workerId === workerId || c.janitorId === workerId || c.attendantId === workerId);
+      if (assigned.length === 0) return false;
+      myRun = { ...d, runInstanceId: doc.id };
+      myCoaches = assigned.map(c => c.coachPosition || c.coachNo);
+      myCoachTasks = assigned.reduce((acc, c) => {
+        const cn = c.coachPosition || c.coachNo;
+        if (c.tasks && c.tasks.length > 0) acc[cn] = c.tasks.map(t => t.toLowerCase());
+        return acc;
+      }, {});
+      return true;
+    };
+
+    if (runInstanceId) {
+      // The app resolves the worker's run first; honour that run instead of
+      // silently showing tasks from a different active run.
+      const doc = await db.collection('RunInstance').doc(runInstanceId).get();
+      if (doc.exists) applyRun(doc);
+    } else {
+      const runsSnap = await db.collection('RunInstance')
+        .where('status', '==', 'Active')
+        .limit(200).get();
+
+      // A worker can have more than one active run; pick the most recent one
+      // instead of whichever document Firestore happens to return last.
+      const matches = [];
+      runsSnap.forEach(doc => {
+        const d = doc.data();
+        const assigned = (d.coaches || []).some(c =>
+          c.workerId === workerId || c.janitorId === workerId || c.attendantId === workerId);
+        if (assigned) matches.push(doc);
+      });
+      matches.sort((a, b) => {
+        const aData = a.data();
+        const bData = b.data();
+        const aKey = aData.scheduledDeparture || aData.departureDate || aData.createdAt || '';
+        const bKey = bData.scheduledDeparture || bData.departureDate || bData.createdAt || '';
+        return String(bKey).localeCompare(String(aKey));
+      });
+      if (matches.length > 0) applyRun(matches[0]);
+    }
 
     if (!myRun) {
       return { success: false, error: 'No active journey found for this worker' };
@@ -767,7 +794,9 @@ class V2Service {
       .where('runInstanceId', '==', myRun.runInstanceId)
       .where('isParentTask', '==', false);
 
-    const janitorCoaches = myRun.coaches.filter(c => c.workerId === workerId).map(c => c.coachPosition || c.coachNo);
+    const janitorCoaches = myRun.coaches
+      .filter(c => c.workerId === workerId || c.janitorId === workerId)
+      .map(c => c.coachPosition || c.coachNo);
     const attendantCoaches = myRun.coaches.filter(c => c.attendantId === workerId).map(c => c.coachPosition || c.coachNo);
     const assignedCoachNos = [...new Set([...janitorCoaches, ...attendantCoaches])];
 

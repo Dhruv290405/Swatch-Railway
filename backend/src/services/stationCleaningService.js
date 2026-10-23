@@ -2976,20 +2976,39 @@ class StationCleaningService {
     }
 
     const { supervisorId, supervisorName, stationId, stationName, date, shift, areas } = data;
-    if (!supervisorId || !stationId || !date || !areas || !Array.isArray(areas)) {
-      throw new ValidationError('supervisorId, stationId, date, and areas array are required');
+    if (!areas || !Array.isArray(areas)) {
+      throw new ValidationError('areas array is required');
     }
     this._validateSummaryAreas(areas);
 
-    const resolvedShift = String(summary.shift || shift || '').trim().toLowerCase();
-    await this._assertAllTasksTerminal(supervisorId, stationId, date, resolvedShift);
+    // A resubmission stays attached to the original supervisor/station/date/shift.
+    // Otherwise the task gate can validate one shift while the stored summary
+    // (and billing) point at another.
+    const targetSupervisorId = summary.supervisorId || supervisorId;
+    const targetStationId = summary.stationId || stationId;
+    const targetDate = summary.date || date;
+    if (!targetSupervisorId || !targetStationId || !targetDate) {
+      throw new ValidationError('supervisorId, stationId, and date are required');
+    }
+    if (stationId && summary.stationId && stationId !== summary.stationId) {
+      throw new ValidationError('The station of a shift summary cannot be changed on resubmission');
+    }
+    if (date && summary.date && date !== summary.date) {
+      throw new ValidationError('The date of a shift summary cannot be changed on resubmission');
+    }
+    if (shift && summary.shift && String(shift).trim().toLowerCase() !== String(summary.shift).trim().toLowerCase()) {
+      throw new ValidationError('The shift of a shift summary cannot be changed on resubmission');
+    }
+
+    const shiftValue = summary.shift || shift || '';
+    const resolvedShift = String(shiftValue).trim().toLowerCase();
+    await this._assertAllTasksTerminal(targetSupervisorId, targetStationId, targetDate, resolvedShift);
     const enriched = await this._enrichSummaryAreas(areas);
     const totalWorkDone = enriched.reduce((sum, a) => sum + (a.workDone || 0), 0);
     const totalTenderedArea = enriched.reduce((sum, a) => sum + (a.tenderedAreaPerDay || 0), 0);
 
     const now = new Date().toISOString();
     const resubmitCount = (parseInt(summary.resubmitCount, 10) || 0) + 1;
-    const shiftValue = shift || summary.shift || '';
     await ref.update({
       supervisorName: supervisorName || summary.supervisorName || '',
       stationName: stationName || summary.stationName || '',
@@ -3012,7 +3031,7 @@ class StationCleaningService {
       summaryUid: uid,
       supervisorName: supervisorName || summary.supervisorName,
       stationName: stationName || summary.stationName,
-      stationId: stationId || summary.stationId,
+      stationId: targetStationId,
       shift: shiftValue,
       isResubmit: true,
     });

@@ -61,14 +61,35 @@ class WorkerController extends GetxController {
         .toList();
     if (validRuns.isEmpty) return null;
 
+    final today = _istDateString(DateTime.now());
+    bool isToday(AssignedRun run) => run.departureDate.startsWith(today);
+
+    // Prefer today's run so a future planned trip never becomes the run the
+    // worker marks attendance against.
+    for (final run in validRuns) {
+      final status = run.status.toLowerCase();
+      if ((status == 'scheduled' || status == 'active') && isToday(run)) {
+        return run;
+      }
+    }
     for (final run in validRuns) {
       final status = run.status.toLowerCase();
       if (status == 'scheduled' || status == 'active') {
         return run;
       }
     }
+    for (final run in validRuns) {
+      if (isToday(run)) return run;
+    }
 
     return validRuns.first;
+  }
+
+  static String _istDateString(DateTime now) {
+    final ist = now.toUtc().add(const Duration(hours: 5, minutes: 30));
+    final month = ist.month.toString().padLeft(2, '0');
+    final day = ist.day.toString().padLeft(2, '0');
+    return '${ist.year}-$month-$day';
   }
 
   List<String> get assignedCoaches {
@@ -356,7 +377,9 @@ class WorkerController extends GetxController {
     }
 
     final runs = response['assignedRuns'];
+    final today = _istDateString(DateTime.now());
     Map<String, dynamic>? fallbackRun;
+    String? activeRunId;
     if (runs is List) {
       for (final rawRun in runs) {
         if (rawRun is! Map) continue;
@@ -366,11 +389,15 @@ class WorkerController extends GetxController {
 
         fallbackRun ??= run;
         final status = run['status']?.toString().toLowerCase() ?? '';
-        if (status == 'scheduled' || status == 'active') {
+        final isActive = status == 'scheduled' || status == 'active';
+        final departureDate = (run['departureDate'] ?? run['date'] ?? '').toString();
+        if (isActive && departureDate.startsWith(today)) {
           return runInstanceId.trim();
         }
+        if (isActive) activeRunId ??= runInstanceId.trim();
       }
     }
+    if (activeRunId != null) return activeRunId;
 
     final profileRunId =
         (fallbackRun?['runInstanceId'] ?? fallbackRun?['id'])?.toString().trim();

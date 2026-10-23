@@ -235,6 +235,28 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> deleteUser({required String uid}) async {
+    try {
+      final token = await getToken();
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/deleteUser/$uid'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception(
+        ApiErrorHandler.getErrorMessage(response.body, response.statusCode),
+      );
+    } catch (e) {
+      throw Exception('Error deleting user: $e');
+    }
+  }
+
   static Future<List<UserRegistrationModel>> getPendingUsers({
     String? entityId,
     int? page,
