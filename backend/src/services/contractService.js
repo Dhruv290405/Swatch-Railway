@@ -239,8 +239,8 @@ class ContractService {
     if (status) firestoreQuery = firestoreQuery.where('status', '==', status);
     if (entityId && userType !== 'contractor') firestoreQuery = firestoreQuery.where('entityId', '==', entityId);
 
-    // Auto-filter by contractType/domain for contractor users
-    const effectiveContractType = queryContractType || (userType === 'contractor' ? domain : null);
+    // Auto-filter by contractType/domain for contractor users (skip for contractor master so all contracts show)
+    const effectiveContractType = queryContractType || (userType === 'contractor' && userRole !== 'contractor master' ? domain : null);
     if (effectiveContractType) firestoreQuery = firestoreQuery.where('contractType', '==', effectiveContractType);
 
     const snapshot = await firestoreQuery.limit(200).get();
@@ -314,7 +314,7 @@ class ContractService {
     const { entityId: queryEntityId, contractType: queryContractType } = queryParams || {};
     const userRole = (role || '').trim().toLowerCase().replace(/_/g, ' ');
 
-    let query = db.collection('contracts').where('status', '==', 'Active');
+    let query = db.collection('contracts');
 
     const restrictedRoles = ['contractor supervisor', 'contractor worker', 'worker'];
     if (restrictedRoles.includes(userRole) && requesterData.contractId) {
@@ -326,7 +326,7 @@ class ContractService {
       }
     }
 
-    const effectiveContractType = queryContractType || (userType === 'contractor' ? domain : null);
+    const effectiveContractType = queryContractType || (userType === 'contractor' && userRole !== 'contractor master' ? domain : null);
     if (effectiveContractType) {
       query = query.where('contractType', '==', effectiveContractType);
     }
@@ -337,6 +337,7 @@ class ContractService {
     const contracts = [];
     snapshot.forEach(doc => {
       const data = doc.data();
+      if (String(data.status || '').toLowerCase() !== 'active') return;
       contracts.push({
         uid: doc.id,
         contractNumber: data.contractNumber,
