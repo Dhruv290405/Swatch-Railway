@@ -45,6 +45,13 @@ class _ContractDropdownState extends State<ContractDropdown> {
             selectedContractId = widget.initialValue;
           }
         }
+         if (selectedContractId == null && contracts.length == 1) {
+           selectedContractId = contracts.first['uid'] as String?;
+           if (selectedContractId != null) {
+             widget.onSelected(selectedContractId!, contracts.first);
+           }
+         }
+         isLoading = false;
         isLoading = false;
       });
     } catch (e) {
@@ -65,7 +72,7 @@ class _ContractDropdownState extends State<ContractDropdown> {
     if (isLoading) return const Center(child: CircularProgressIndicator());
 
     return DropdownButtonFormField<String>(
-      value: selectedContractId,
+      initialValue: selectedContractId,
       hint: const Text("Select Contract"),
       isExpanded: true,
       items: contracts
