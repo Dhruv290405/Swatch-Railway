@@ -3,6 +3,13 @@
  *
  * Payment is derived from ACTUAL CLEANING WORK VALUED BY AREA:
  *
+ * Supports TWO billing modes:
+ *   A) Manual rate mode  — admin sets a ₹/sqft rate in config
+ *   B) Weightage mode    — admin allocates area weightages (100%),
+ *                          daily money per area is derived from ACV / contractDays × weightage%
+ *
+ * When weightages are configured (mode B), ratePerSqft is NOT required.
+ *
  *   area sqft x cleaning rate -> one execution value
  *   AREA -> SQFT -> RATE -> ACTUAL EXECUTION -> GROSS WORK VALUE
  *
@@ -40,6 +47,7 @@
 import { db } from '../database/index.js';
 import { NotFoundError, ValidationError } from '../errors/index.js';
 import logger from '../logger/index.js';
+import { roundMoney, mulMoney } from '../utils/money.js';
 import { computeContractDays } from '../utils/period.js';
 import { auditService } from './auditService.js';
 import {
@@ -307,8 +315,14 @@ class PerformanceBillingService {
     const config = await this.getOrCreateConfig(contractId);
 
     const ratePerSqft = Number(config.ratePerSqft);
-    if (Number.isNaN(ratePerSqft) || ratePerSqft <= 0) {
-      throw new ValidationError('Cleaning rate (₹/sqft per execution) is not configured. Set it in Billing Configuration → General.');
+    const weightages = config.areaWeightages || {};
+    const hasWeightages = Object.keys(weightages).length > 0;
+    const acv = Number(config.annualContractValue || 0);
+    const useWeightageMode = hasWeightages && acv > 0;
+
+    // Allow either manual rate OR weightage-derived rates
+    if ((Number.isNaN(ratePerSqft) || ratePerSqft <= 0) && !useWeightageMode) {
+      throw new ValidationError('Cleaning rate (₹/sqft per execution) is not configured. Set it in Billing Configuration → General, or configure area weightages in Area Rates & Weightage.');
     }
 
     const contractDoc = await db.collection('contracts').doc(contractId).get();
@@ -320,6 +334,7 @@ class PerformanceBillingService {
     const stationName = stationDoc.data().stationName || '';
 
     const period = this._effectivePeriod(contract, parseInt(month), parseInt(year));
+    const contractDays = computeContractDays(contract.startDate, contract.endDate) || 365;
 
     // Execution data — pulled by station then filtered to the window to avoid
     // composite index requirements (mirrors existing billing services).
@@ -361,7 +376,7 @@ class PerformanceBillingService {
     const rateOf = (areaId) => {
       const o = overrides[areaId];
       if (o !== undefined && o !== null && o !== '' && !Number.isNaN(Number(o)) && Number(o) >= 0) return Number(o);
-      return ratePerSqft;
+      return Number.isFinite(ratePerSqft) && ratePerSqft > 0 ? ratePerSqft : 0;
     };
     const sqftOf = (a) => {
       const sqft = Number(a.basicAreaSqFt || a.areaSqFt || a.sqft || 0);
@@ -385,6 +400,11 @@ class PerformanceBillingService {
           sqft: sqftOf(areaMeta[areaId]),
           rate: rateOf(areaId),
           frequency: areaMeta[areaId].cleaningFrequency || areaMeta[areaId].frequencyType || '',
+          weightage: (() => {
+            const w = weightages[areaId];
+            if (w !== undefined && w !== null && w !== '' && !Number.isNaN(Number(w))) return Number(w);
+            return null;
+          })(),
           required: 0, verified: 0,
         };
         areaRows.push(rowMap[areaId]);
@@ -397,8 +417,17 @@ class PerformanceBillingService {
       r.verified = Math.min(r.required, Math.max(0, executedByArea[r.areaId] || 0));
       totals.verified += r.verified;
       r.achievement = r.required > 0 ? clamp(Math.round((r.verified / r.required) * 10000) / 100, 0, 100) : null;
-      r.scheduledValue = Math.round(r.sqft * r.rate * r.required);
-      r.actualValue = Math.round(r.sqft * r.rate * r.verified);
+      // Use weightage-derived values when in weightage mode, mirroring daily billing
+      if (useWeightageMode && r.weightage !== null) {
+        const areaDaily = areaDailyMoneyValue(acv, r.weightage, contractDays);
+        const perExec = perExecutionValue(areaDaily, r.required);
+        r.rate = areaRatePerSqFt(areaDaily, r.sqft);
+        r.scheduledValue = roundMoney(perExec * r.required);
+        r.actualValue = roundMoney(perExec * r.verified);
+      } else {
+        r.scheduledValue = Math.round(r.sqft * r.rate * r.required);
+        r.actualValue = Math.round(r.sqft * r.rate * r.verified);
+      }
     });
 
     const scheduledWorkValue = areaRows.reduce((s, r) => s + r.scheduledValue, 0);
@@ -489,7 +518,7 @@ class PerformanceBillingService {
         contractStart: period.contractStart, contractEnd: period.contractEnd,
         applicableDays: period.applicableDays,
       },
-      ratePerSqft: ratePerSqft,
+      ratePerSqft: useWeightageMode ? null : ratePerSqft,
       executionSource: 'approved_shift_summaries',
       approvedShiftSummaries: summaries.length,
       // Value pipeline (AREA -> SQFT -> RATE -> ACTUAL EXECUTION).

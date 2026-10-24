@@ -54,8 +54,9 @@ class UserService {
 
     const roleUpper = role.toUpperCase().replace(/\s+/g, '_');
     const isContractorMaster = roleUpper === 'CONTRACTOR_MASTER';
+    const isContractorAdmin = roleUpper === 'CONTRACTOR_ADMIN';
 
-    if (normalizedUserType === 'contractor' && !isContractorMaster) {
+    if (normalizedUserType === 'contractor' && !isContractorMaster && !isContractorAdmin) {
       if (!contractId) {
         throw new ValidationError("Contract is mandatory for all Contractor users.");
       }
@@ -123,22 +124,25 @@ class UserService {
     let entityData = null;
     let resolvedContractType = null;
     if (normalizedUserType === 'contractor' && !isContractorMaster) {
-      const contractDoc = await db.collection('contracts').doc(contractId).get();
-      if (!contractDoc.exists) {
-        throw new NotFoundError("Contract not found.");
+      let contractData = null;
+      if (contractId) {
+        const contractDoc = await db.collection('contracts').doc(contractId).get();
+        if (!contractDoc.exists) {
+          throw new NotFoundError("Contract not found.");
+        }
+        contractData = contractDoc.data();
+        entityData = contractData.entityName ? { companyName: contractData.entityName } : null;
+        resolvedContractType = contractData.contractType || null;
+        entityId = contractData.entityId || entityId;
+        userData.entityId = entityId;
       }
-      const contractData = contractDoc.data();
-      entityData = contractData.entityName ? { companyName: contractData.entityName } : null;
-      resolvedContractType = contractData.contractType || null;
-      entityId = contractData.entityId || entityId;
-      userData.entityId = entityId;
       const userRoleLower = role.toLowerCase().replace(/_/g, " ");
       const creatorRoleUpper = (creatorRole || '').toUpperCase().replace(/\s+/g, '_');
       const bypassRoles = ['SUPER_ADMIN', 'COMPANY_MASTER', 'ADMIN'];
       const isCreatorSuperAdmin = bypassRoles.includes(creatorRoleUpper);
       if ((!userRoleLower.includes("super admin") && userRoleLower.includes("admin")) || userRoleLower.includes('supervisor')) {
         if (!isCreatorSuperAdmin) {
-          if (!zone || !division) {
+          if (!entityId || !zone || !division) {
             throw new ValidationError("Zone and Division are mandatory to check Active Contracts.");
           }
           console.log(`(CreateUser) Checking Active Contract for Entity: ${entityId}`);
@@ -158,7 +162,7 @@ class UserService {
         }
       }
 
-      if (!domain) {
+      if (!domain && contractId) {
         const contractDoc = await db.collection('contracts').doc(contractId).get();
         if (contractDoc.exists) {
           const contractData = contractDoc.data();
