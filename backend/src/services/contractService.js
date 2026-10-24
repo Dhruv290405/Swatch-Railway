@@ -336,8 +336,6 @@ class ContractService {
 
     const contracts = [];
     snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.status && String(data.status).toLowerCase() !== 'active') return;
       contracts.push({
         uid: doc.id,
         contractNumber: data.contractNumber,
