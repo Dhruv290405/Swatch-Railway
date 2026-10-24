@@ -566,12 +566,17 @@ class ApiService {
       if (entityId != null && entityId.isNotEmpty) {
         url += '?entityId=$entityId';
       }
-      final response = await http.get(
-        Uri.parse(url),
-        headers: { 'Authorization': 'Bearer $token' },
-      );
+      final response = await http
+          .get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'})
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw TimeoutException('Contract dropdown request timed out'),
+          );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        print('getContractsForDropdown HTTP ${response.statusCode}: ${response.body.substring(0, 100)}');
+      }
         return List<Map<String, dynamic>>.from(data['contracts'] ?? []);
       }
       return [];
