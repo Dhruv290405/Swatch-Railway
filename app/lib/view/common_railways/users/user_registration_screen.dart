@@ -175,6 +175,8 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
           _isEntityAutoAssigned = true;
           _isContractAutoAssigned = false;
           _selectedCompany = currentUser.entityId;
+          _selectedContractId = first?['uid'];
+          _selectedContractData = first;
           _selectedCompanyName = (first?['entityName'] as String?)?.isNotEmpty == true ? first!['entityName'] as String? : null;
           _zone = _normalizeZoneFromContract(currentUser.zone);
           _division = _normalizeDivisionFromContract(_zone, currentUser.division);
@@ -737,7 +739,9 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
 
               if (_selectedUserType == 'contractor') ...[
-                if (_isContractAutoAssigned && _selectedContractData != null) ...[
+                // Skip contract dropdown when entity/contract are already auto-detected
+                // to avoid redundancy since values are already populated from auto-assignment
+                if (!_isContractAutoAssigned && _selectedContractData != null) ...[
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Column(

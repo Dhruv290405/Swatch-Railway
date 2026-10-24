@@ -336,17 +336,25 @@ class ContractService {
 
     const contracts = [];
     snapshot.forEach(doc => {
+      // Firestore document data — previously `data` was referenced but never
+      // defined, so every field was `undefined`. That caused the
+      // contract dropdown to receive items with a `null` uid, which the
+      // frontend then filtered out (items: []), leaving the dropdown
+      // non-interactive ("clicked but not open / stuck").
+      const data = doc.data();
+      const stationIds = data['stationIds'];
+      const stationNames = data['stationNames'];
       contracts.push({
         uid: doc.id,
-        contractNumber: data.contractNumber,
-        contractName: data.contractName,
-        contractType: data.contractType,
-        entityId: data.entityId,
-        entityName: data.entityName,
-        zone: data.zone,
-        division: data.division,
-        stationIds: data.stationIds || [],
-        stationNames: data.stationNames || []
+        contractNumber: data['contractNumber'],
+        contractName: data['contractName'],
+        contractType: data['contractType'],
+        entityId: data['entityId'],
+        entityName: data['entityName'],
+        zone: data['zone'],
+        division: data['division'],
+        stationIds: Array.isArray(stationIds) ? stationIds : [],
+        stationNames: Array.isArray(stationNames) ? stationNames : []
       });
     });
 
