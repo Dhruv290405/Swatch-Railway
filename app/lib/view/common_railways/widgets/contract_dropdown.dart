@@ -71,10 +71,24 @@ class _ContractDropdownState extends State<ContractDropdown> {
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator());
 
+    // If auto-selected or only 1 contract, show it directly without dropdown
+    if (selectedContractId != null && contracts.length <= 1) {
+      return Text(
+        contracts.isNotEmpty 
+          ? '${contracts.first['contractNumber']} - ${contracts.first['contractName']} (${contracts.first['contractType']})'
+          : 'No contract assigned',
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          color: contracts.isEmpty ? Colors.grey[600] : Colors.black87,
+        ),
+      );
+    }
+    
     return DropdownButtonFormField<String>(
-      initialValue: selectedContractId,
-      hint: const Text("Select Contract"),
+      // Show placeholder only if multiple contracts exist
+      hint: contracts.length > 1 ? const Text("Select Contract") : null,
       isExpanded: true,
+      value: selectedContractId,
       items: contracts
         .where((c) => c['uid'] != null)
         .map<DropdownMenuItem<String>>((contract) {
