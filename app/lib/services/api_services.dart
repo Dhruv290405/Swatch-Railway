@@ -1,3 +1,4 @@
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:crm_train/model/billing_models.dart';
@@ -86,6 +87,23 @@ class ApiService {
 
   static String baseUrl = 'https://swatch-railway-0zer.onrender.com';
   static void setBaseUrl(String url) { baseUrl = url; }
+
+  /// Initializes the base URL from Firebase Remote Config at app startup.
+  /// This will fetch the 'api_base_url' parameter from the FC console and update
+  /// [baseUrl] so all API calls use the remote config value.
+  static Future<void> initBaseUrl() async {
+    final remoteConfig = FirebaseRemoteConfig.instance;
+    // Set defaults so the app works even if FC isn't configured yet
+    await remoteConfig.setDefaults({
+      'api_base_url': 'https://swatch-railway-0zer.onrender.com',
+    });
+    // Fetch the latest value from FC and activate it
+    await remoteConfig.fetchAndActivate();
+    final url = remoteConfig.getString('api_base_url');
+    if (url != null) {
+      baseUrl = url;
+    }
+  }
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();

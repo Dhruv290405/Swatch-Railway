@@ -1,4 +1,5 @@
 import 'package:crm_train/providers/auth_provider.dart';
+import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/view/onboarding_screens/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -13,6 +14,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await ApiService.initBaseUrl();
 
   final authProvider = AuthProvider();
   await authProvider.loadUserSession();
