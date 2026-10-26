@@ -62,6 +62,105 @@ class CommonDashboard extends StatefulWidget {
   });
 
   @override
+class _CommonDashboardState extends State<CommonDashboard> {
+with Paginator
+with Paginator
+  // Pagination state
+  int _currentPage = 1;
+  bool _hasMoreData = true;
+  bool _isLoadingMore = false;
+  final ScrollController _scrollController = ScrollController();
+  
+  // Real-time data
+  RealTimeDataProvider _realTimeProvider = RealTimeDataProvider();
+  bool _isWebSocketConnected = false;
+
+  @override
+  void _loadMoreData() async {
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      // Fetch more data with pagination
+      final newData = await _fetchDashboardData(page: _currentPage);
+      
+      if (newData.isNotEmpty) {
+        // Append new data to existing data
+        // _dashboardItems.addAll(newData);
+        setState(() {
+          _hasMoreData = newData.length >= 10; // Assume 10 items per page
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() {
+          _hasMoreData = false;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading more data: $e');
+      setState(() {
+        _isLoadingMore = false;
+        _currentPage--; // Revert page increment on error
+      });
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchDashboardData({int page = 1}) async {
+    // Implement pagination based on your API
+    // This is a placeholder - replace with actual API call
+    // Example: final response = await ApiService.getDashboardStats(page: page);
+    // return response['items'] as List<Map<String, dynamic>>;
+    return []; // Return empty for now - implement based on your API
+  }
+
+  void _updateTaskStatusFromRealTime(dynamic data) {
+    // Update task status in the UI
+    // Find the task and update its status display
+    if (mounted) {
+      setState(() {
+        // Update local task status
+      });
+    }
+  }
+
+  void _showNewComplaintNotification(dynamic data) {
+    // Show notification for new complaint
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('New complaint: ${data['title'] ?? 'Untitled'}'),
+          backgroundColor: kRailwayBlue,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _updateAttendanceFromRealTime(dynamic data) {
+    // Update attendance status
+    if (mounted) {
+      setState(() {
+        // Update attendance UI
+      });
+    }
+  }
+
+  void _updateRatingsFromRealTime(dynamic data) {
+    // Update ratings
+    if (mounted) {
+      setState(() {
+        // Update ratings UI
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
   State<CommonDashboard> createState() => _CommonDashboardState();
 }
 

@@ -1,4 +1,9 @@
-import 'dart:convert';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import '../services/api_services.dart';
+import '../services/websocket_service.dart';
+import '../services/real_time_data_service.dart';
+
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -22,6 +27,26 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
   UserModel? get currentUser => _currentUser;
 
+  RealTimeDataProvider? _realTimeDataProvider;
+  WebSocketService? _webSocketService;
+  WebSocketChannel? _webSocketChannel;
+  bool _isWebSocketConnected = false;
+  bool get isWebSocketConnected => _isWebSocketConnected;
+
+  final Map<String, Function> _eventHandlers = {};
+
+  void setRealTimeProvider(RealTimeDataProvider provider) {
+    _realTimeDataProvider = provider;
+  }
+
+  void onEvent(String event, Function handler) {
+    _eventHandlers[event] = handler;
+    if (_realTimeDataProvider != null) {
+      _realTimeDataProvider!.subscribe(event, (data) {
+        handler(data);
+      });
+    }
+  }
 
   Map<String, dynamic>? get entityDetails => _currentUser?.entityDetails;
 
@@ -291,4 +316,87 @@ class AuthProvider extends ChangeNotifier {
     await prefs.clear();
     notifyListeners();
   }
+
+  void disconnectWebSocket() {
+    _webSocketService?.disconnect();
+    _webSocketChannel?.sink.close();
+    _webSocketChannel = null;
+    _isWebSocketConnected = false;
+    _webSocketService = null;
+    notifyListeners();
+  }
+
+  Future<void> initializeWebSocket() async {
+    if (_webSocketService != null && _isWebSocketConnected) return;
+
+    try {
+      _webSocketService = WebSocketService();
+      _webSocketService!.initialize(
+        _token ?? '',
+        _currentUser?.uid ?? '',
+        _currentUser?.role ?? '',
+      );
+
+      final connected = await _webSocketService!.connect(
+        ApiService.baseUrl,
+      );
+
+      _isWebSocketConnected = connected;
+      notifyListeners();
+
+      if (connected) {
+        _webSocketChannel = _webSocketService!.channel;
+
+        _webSocketChannel!.stream.listen(
+          (data) {
+            _onWebSocketMessage(data);
+            if (_realTimeDataProvider != null) {
+              _realTimeDataProvider!.handleMessage(data);
+            }
+          },
+          onDone: () {
+            _isWebSocketConnected = false;
+            notifyListeners();
+            _attemptReconnection();
+          },
+          onError: (error) {
+            debugPrint('WebSocket error: $error');
+            _isWebSocketConnected = false;
+            notifyListeners();
+            _attemptReconnection();
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to initialize WebSocket: $e');
+      _isWebSocketConnected = false;
+      notifyListeners();
+    }
+  }
+
+  void _onWebSocketMessage(dynamic message) {
+    try {
+      final data = jsonDecode(message.toString());
+      final event = data['event'];
+
+      if (_eventHandlers.containsKey(event)) {
+        _eventHandlers[event]!(data['data']);
+      }
+
+      if (_realTimeDataProvider != null) {
+        _realTimeDataProvider!.handleMessage(data);
+      }
+    } catch (e) {
+      debugPrint('WebSocket message parse error: $e');
+    }
+  }
+
+  void _attemptReconnection() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_token != null && _currentUser != null) {
+        initializeWebSocket();
+      }
+    });
+  }
+}
 }
