@@ -8,6 +8,11 @@ class ContractService {
     const { uid, name, fullName, email, role } = creatorData;
     const creatorName = fullName || name || email || role || 'Unknown';
 
+    const normalizedRole = (role || '').trim().toUpperCase().replace(/ /g, '_');
+    if (normalizedRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenError("Only Super Admin can create contracts.");
+    }
+
     if (!entityId) {
       throw new ValidationError("Please select a Contractor (Entity) to create a contract.");
     }

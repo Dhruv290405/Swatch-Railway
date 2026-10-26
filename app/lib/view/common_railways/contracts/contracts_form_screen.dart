@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../model/contracts_model.dart';
+import '../../../model/user_entity_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../utills/validators.dart';
 
@@ -48,11 +49,14 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   List<String> selectedTrainNames = [];
   List<Station> _availableStations = [];
   List<TrainModel> _availableTrains = [];
+  List<EntityModel> _availableEntities = [];
   bool _stationsLoading = false;
   String? _manualStationId;
   String? _manualStationName;
   String? selectedBillingCycle;
   String? selectedContractType;
+  String? selectedEntityId;
+  String? selectedEntityName;
   double contractValue = 0;
   bool scoringApplicability = true;
 
@@ -84,6 +88,10 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
       if (selectedDivision != null) {
         _loadStations(division: selectedDivision);
       }
+      final authUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+      if (authUser != null && authUser.role == 'SUPER_ADMIN') {
+        _loadEntities();
+      }
     });
   }
 
@@ -98,6 +106,13 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   Future<void> _loadTrains() async {
     try {
       _availableTrains = await ApiService.getActiveTrains();
+    } catch (_) {}
+  }
+
+  Future<void> _loadEntities() async {
+    try {
+      _availableEntities = await ApiService.getApprovedEntity();
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
@@ -286,6 +301,23 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                           if (!isEditMode) setState(() => endDate = date);
                         }, enabled: !isEditMode),
                         const SizedBox(height: 12),
+                        if (Provider.of<AuthProvider>(context, listen: false).currentUser?.role == 'SUPER_ADMIN')
+                          _buildDropdown(
+                            'Entity (Contractor)',
+                            'Select entity',
+                            _availableEntities.map((e) => e.contractorName ?? '').toList(),
+                            selectedEntityName,
+                            (v) {
+                              setState(() {
+                                selectedEntityName = v;
+                                selectedEntityId = _availableEntities
+                                    .firstWhere((e) => e.contractorName == v,
+                                        orElse: () => _availableEntities.first)
+                                    .uid;
+                              });
+                            },
+                            enabled: !isEditMode,
+                          ),
                         Row(
                           children: [
                             Expanded(
@@ -301,7 +333,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                               child: _buildDropdown(
                                 'Contract Type',
                                 'Select type',
-                                ['Station Cleaning', 'MCC'],
+                                ['Station Cleaning', 'MCC', 'OBHS'],
                                 selectedContractType,
                                 (v) {
                                   setState(() {
@@ -1020,8 +1052,10 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         String formattedStartDate = startDate!.toIso8601String();
         String formattedEndDate = endDate!.toIso8601String();
         String workCategoriesString = selectedWorkCategories.join(',');
-        final userEntityId = Provider.of<AuthProvider>(context, listen: false).currentUser?.entityId;
-        if (userEntityId == null || userEntityId.isEmpty) {
+        final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+        final isSuperAdmin = user?.role == 'SUPER_ADMIN';
+        String? resolvedEntityId = isSuperAdmin ? selectedEntityId : user?.entityId;
+        if (resolvedEntityId == null || resolvedEntityId.isEmpty) {
           _showErrorSnackBar("Your account is not linked to an entity");
           return;
         }
@@ -1029,12 +1063,14 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         response = await ApiService.createContract(
           contractNumber: contractNoController.text,
           contractName: contractNameController.text,
-          entityId: userEntityId,
+          entityId: resolvedEntityId,
           zone: selectedZone!,
           division: selectedDivision,
           depot: selectedDepot,
           stationIds: (selectedContractType == 'Station Cleaning' || selectedContractType == 'MCC')
-              ? (_manualStationId != null ? [_manualStationId!] : null)
+              ? (_manualStationId != null
+                  ? [_manualStationId!]
+                  : (selectedStationIds.isNotEmpty ? selectedStationIds : null))
               : (selectedStationIds.isNotEmpty ? selectedStationIds : null),
           trainIds: selectedContractType == 'OBHS' ? (selectedTrainIds.isNotEmpty ? selectedTrainIds : null) : null,
           startDate: formattedStartDate,
