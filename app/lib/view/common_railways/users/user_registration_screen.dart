@@ -533,7 +533,11 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   }
 
   bool _isContractAreaLocked() {
-    return _isContractorAdminOrSupervisor() && _selectedContractId != null;
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    final creatorRole = (currentUser?.role ?? '').toUpperCase().replaceAll(' ', '_');
+    final creatorIsContractorAdminOrSupervisor =
+        creatorRole == 'CONTRACTOR_ADMIN' || creatorRole == 'CONTRACTOR_SUPERVISOR' || creatorRole == 'CTS';
+    return creatorIsContractorAdminOrSupervisor && _selectedContractId != null;
   }
 
   String _normalizeZoneFromContract(String? contractZone) {
