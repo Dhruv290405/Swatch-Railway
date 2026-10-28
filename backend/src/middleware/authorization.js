@@ -100,6 +100,11 @@ export function requireAreaAccess(req, res, next) {
 export function requireContractType(...allowedTypes) {
   return (req, res, next) => {
     const userContractType = req.user?.contractType;
+    const role = (req.user?.role || '').toUpperCase().replace(/\\s+/g, '_');
+    // Contract admins/masters manage across contract types; don't block them.
+    if (role === 'CONTRACTOR_ADMIN' || role === 'CONTRACTOR_MASTER' || role === 'SUPER_ADMIN') {
+      return next();
+    }
     if (userContractType && !allowedTypes.includes(userContractType)) {
       throw new ForbiddenError(`Access denied. Requires contract type: ${allowedTypes.join(' or ')}`);
     }
