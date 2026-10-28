@@ -102,7 +102,7 @@ export function requireContractType(...allowedTypes) {
     const userContractType = req.user?.contractType;
     const role = (req.user?.role || '').toUpperCase().replace(/\\s+/g, '_');
     // Contract admins/masters (and super admins) manage across contract types; don't block them.
-    if (role.includes('ADMIN') || role.includes('MASTER') || role.includes('SUPER')) {
+    if (role.includes('ADMIN') || role.includes('MASTER') || role.includes('SUPER') || role.includes('SUPERVISOR')) {
       return next();
     }
     if (userContractType && !allowedTypes.includes(userContractType)) {
