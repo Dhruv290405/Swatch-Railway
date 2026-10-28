@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import authRoutes from './routes/auth.js';
+import uiConfigRoutes from './routes/uiConfig.js';
 import passengerRoutes from './routes/passenger.js';
 import passengerServiceRequestRoutes from './routes/passengerServiceRequest.js';
 import usersRoutes from './routes/users.js';
@@ -131,6 +132,7 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok', timestamp:
 
 // Mount all route modules
 app.use(authRoutes);                              // /api/auth/*
+app.use(uiConfigRoutes);                          // /api/ui-config
 app.use(usersRoutes);                             // /api/users/*
 app.use(entitiesRoutes);                          // /api/contractors/* /api/master/* /api/admin/*
 app.use(contractsRoutes);                         // /api/contracts/*

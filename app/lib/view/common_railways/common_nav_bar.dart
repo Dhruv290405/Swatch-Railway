@@ -105,53 +105,62 @@ class CommonNavBar extends StatelessWidget {
   }
 
 
-  List<Widget> _commonScreens() => [
-    CommonDashboard(),
-    CommonFormScreen(role: userRole, userLevel: userLevel),
-    CommonUserManagementScreen(),
-    CommonEntityManagmentScreen(),
-    CommonReportScreen(),
-    CommonTrainScreen(),
-  ];
+  bool get _isSuperAdmin => userDisplayRole == 'Super Admin';
 
-  List<PersistentBottomNavBarItem> _commonNavItems() => [
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.dashboard_rounded),
-      title: "Dashboard",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.description_rounded),
-      title: "Forms",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.person_add_alt_1_rounded),
-      title: "Approvals",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.location_city_outlined),
-      title: "Entity",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.bar_chart),
-      title: "Reports",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-    PersistentBottomNavBarItem(
-      icon: const Icon(Icons.train),
-      title: "Train",
-      activeColorPrimary: Colors.blue,
-      inactiveColorPrimary: Colors.grey,
-    ),
-  ];
+  List<Widget> _commonScreens() {
+    final screens = <Widget>[
+      CommonDashboard(),
+      CommonFormScreen(role: userRole, userLevel: userLevel),
+      CommonUserManagementScreen(),
+      if (_isSuperAdmin) CommonEntityManagmentScreen(),
+      CommonReportScreen(),
+      CommonTrainScreen(),
+    ];
+    return screens;
+  }
+
+  List<PersistentBottomNavBarItem> _commonNavItems() {
+    final items = <PersistentBottomNavBarItem>[
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.dashboard_rounded),
+        title: "Dashboard",
+        activeColorPrimary: Colors.blue,
+        inactiveColorPrimary: Colors.grey,
+      ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.description_rounded),
+        title: "Forms",
+        activeColorPrimary: Colors.blue,
+        inactiveColorPrimary: Colors.grey,
+      ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        title: "Approvals",
+        activeColorPrimary: Colors.blue,
+        inactiveColorPrimary: Colors.grey,
+      ),
+      if (_isSuperAdmin)
+        PersistentBottomNavBarItem(
+          icon: const Icon(Icons.location_city_outlined),
+          title: "Entity",
+          activeColorPrimary: Colors.blue,
+          inactiveColorPrimary: Colors.grey,
+        ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.bar_chart),
+        title: "Reports",
+        activeColorPrimary: Colors.blue,
+        inactiveColorPrimary: Colors.grey,
+      ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.train),
+        title: "Train",
+        activeColorPrimary: Colors.blue,
+        inactiveColorPrimary: Colors.grey,
+      ),
+    ];
+    return items;
+  }
 
   @override
   Widget build(BuildContext context) {

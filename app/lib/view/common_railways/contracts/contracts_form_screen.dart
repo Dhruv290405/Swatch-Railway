@@ -89,7 +89,7 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         _loadStations(division: selectedDivision);
       }
       final authUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
-      if (authUser != null && authUser.role == 'SUPER_ADMIN') {
+      if (authUser != null && authUser.role == 'Super Admin') {
         _loadEntities();
       }
     });
@@ -112,7 +112,20 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   Future<void> _loadEntities() async {
     try {
       _availableEntities = await ApiService.getApprovedEntity();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          // Pre-select the first approved entity so a Super Admin can create a
+          // contract without hitting the entity-linkage error. They can pick a
+          // different contractor from the dropdown if needed.
+          if (_availableEntities.isNotEmpty &&
+              selectedEntityId == null &&
+              selectedEntityName == null) {
+            selectedEntityName =
+                _availableEntities.first.contractorName ?? '';
+            selectedEntityId = _availableEntities.first.uid;
+          }
+        });
+      }
     } catch (_) {}
   }
 
@@ -301,19 +314,27 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
                           if (!isEditMode) setState(() => endDate = date);
                         }, enabled: !isEditMode),
                         const SizedBox(height: 12),
-                        if (Provider.of<AuthProvider>(context, listen: false).currentUser?.role == 'SUPER_ADMIN')
+                        if (Provider.of<AuthProvider>(context, listen: false).currentUser?.role == 'Super Admin')
                           _buildDropdown(
                             'Entity (Contractor)',
                             'Select entity',
                             _availableEntities.map((e) => e.contractorName ?? '').toList(),
                             selectedEntityName,
                             (v) {
+                              if (v == null || v.isEmpty) return;
                               setState(() {
                                 selectedEntityName = v;
-                                selectedEntityId = _availableEntities
-                                    .firstWhere((e) => e.contractorName == v,
-                                        orElse: () => _availableEntities.first)
-                                    .uid;
+                                final match = _availableEntities.firstWhere(
+                                  (e) => e.contractorName == v,
+                                  orElse: () {
+                                    if (_availableEntities.isNotEmpty) {
+                                      return _availableEntities.first;
+                                    }
+                                    return EntityModel(
+                                        uid: '', contractorName: v);
+                                  },
+                                );
+                                selectedEntityId = match.uid;
                               });
                             },
                             enabled: !isEditMode,
@@ -1053,10 +1074,14 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
         String formattedEndDate = endDate!.toIso8601String();
         String workCategoriesString = selectedWorkCategories.join(',');
         final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-        final isSuperAdmin = user?.role == 'SUPER_ADMIN';
+        final isSuperAdmin = user?.role == 'Super Admin';
         String? resolvedEntityId = isSuperAdmin ? selectedEntityId : user?.entityId;
         if (resolvedEntityId == null || resolvedEntityId.isEmpty) {
-          _showErrorSnackBar("Your account is not linked to an entity");
+          _showErrorSnackBar(
+            isSuperAdmin
+                ? "Please select a Contractor (Entity) for this contract."
+                : "Your account is not linked to an entity.",
+          );
           return;
         }
 

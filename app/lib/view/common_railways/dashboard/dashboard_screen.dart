@@ -36,6 +36,7 @@ import '../widgets/QuickActionCard.dart';
 import '../widgets/filter_section.dart';
 import '../widgets/indicator_color.dart';
 import '../widgets/status_tile.dart';
+import '../widgets/paginator.dart';
 import '../station_management/area_list_screen.dart';
 import '../station_management/task_generation_screen.dart';
 import '../../station_cleaning/shift_summary_approval_screen.dart';
@@ -57,14 +58,15 @@ import 'package:crm_train/view/obhs_screens/obhs_ratings_screen.dart';
 import 'package:crm_train/view/obhs_screens/obhs_analytics_screen.dart';
 
 class CommonDashboard extends StatefulWidget {
-  CommonDashboard({
+  const CommonDashboard({
     super.key,
   });
 
   @override
+  State<CommonDashboard> createState() => _CommonDashboardState();
+}
+
 class _CommonDashboardState extends State<CommonDashboard> {
-with Paginator
-with Paginator
   // Pagination state
   int _currentPage = 1;
   bool _hasMoreData = true;
@@ -108,19 +110,15 @@ with Paginator
   }
 
   Future<List<Map<String, dynamic>>> _fetchDashboardData({int page = 1}) async {
-    // Implement pagination based on your API
-    // This is a placeholder - replace with actual API call
-    // Example: final response = await ApiService.getDashboardStats(page: page);
-    // return response['items'] as List<Map<String, dynamic>>;
-    return []; // Return empty for now - implement based on your API
+  
+    return []; 
   }
 
   void _updateTaskStatusFromRealTime(dynamic data) {
-    // Update task status in the UI
-    // Find the task and update its status display
+   
     if (mounted) {
       setState(() {
-        // Update local task status
+     
       });
     }
   }
@@ -161,10 +159,7 @@ with Paginator
     _scrollController.dispose();
     super.dispose();
   }
-  State<CommonDashboard> createState() => _CommonDashboardState();
-}
-
-class _CommonDashboardState extends State<CommonDashboard> {
+  // createState removed - already defined above
   bool isStatsLoading = true;
 
   String? selectedZone;
@@ -576,7 +571,7 @@ class _CommonDashboardState extends State<CommonDashboard> {
         "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"],
         "children": [
           {"title": "User Management", "route": "users"},
-          {"title": "Entity Management", "route": "entities", "roles": ["Super Admin", "Company Master", "Railway Master", "Railway Admin"]},
+          {"title": "Entity Management", "route": "entities", "roles": ["Super Admin"]},
           {"title": "Contract Management", "route": "contracts", "roles": ["Super Admin", "Company Master", "Railway Master", "Railway Admin"]},
           {"title": "Station Management", "route": "station_management_master"},
           {"title": "Train Management", "route": "trains"},
@@ -1360,7 +1355,7 @@ case "station_reports": {
 
               const SizedBox(height: 10),
 
-              if (user?.role != "Railway Supervisor" && user?.role != "Contractor Admin")
+              if (user?.role == "Super Admin")
                 _buildActionButton("Manage Entity",
                     Icons.location_city_outlined, Colors.blue, () {
                       Navigator.push(
