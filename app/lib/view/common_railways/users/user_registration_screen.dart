@@ -390,10 +390,10 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
   bool _shouldShowStationSelection() {
     if (_selectedRole == null) return false;
-    if (_selectedRole!.toLowerCase().contains('master')) return false;
     if (_selectedRole!.toLowerCase().contains('worker')) return true;
     if (_selectedRole!.toLowerCase().contains('inspector')) return true;
     if (_selectedUserType == 'contractor' && _selectedCompany != null) return true;
+    if (_selectedUserType == 'railway') return true;
     return false;
   }
 
