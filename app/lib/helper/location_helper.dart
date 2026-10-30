@@ -38,10 +38,8 @@ Future<Position?> captureGps({Duration timeout = defaultGpsTimeout}) async {
 
   try {
     return await Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.low,
-        timeLimit: timeout,
-      ),
+      desiredAccuracy: LocationAccuracy.low,
+      timeLimit: timeout,
     ).timeout(timeout);
   } catch (_) {
     return null;

@@ -88,10 +88,8 @@ class _ObhsTaskExecutionSheetState extends State<ObhsTaskExecutionSheet> {
       
       try {
         return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high, 
-            timeLimit: Duration(seconds: 15)
-          ),
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15),
         );
       } catch (e) {
         // Fallback to last known position
@@ -100,10 +98,8 @@ class _ObhsTaskExecutionSheetState extends State<ObhsTaskExecutionSheet> {
 
         // Fallback to low accuracy
         return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low, 
-            timeLimit: Duration(seconds: 15)
-          ),
+          desiredAccuracy: LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 15),
         );
       } catch (e) {
         // Ultimate fallback to allow workflow to continue

@@ -73,10 +73,8 @@ class _StationWorkerAttendanceScreenState extends State<StationWorkerAttendanceS
 
       try {
         return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 20),
-          ),
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 20),
         );
       } catch (e) {
         try {
@@ -86,10 +84,8 @@ class _StationWorkerAttendanceScreenState extends State<StationWorkerAttendanceS
 
         try {
           return await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.low,
-              timeLimit: Duration(seconds: 15),
-            ),
+            desiredAccuracy: LocationAccuracy.low,
+            timeLimit: const Duration(seconds: 15),
           );
         } catch (e2) {
           return Position(

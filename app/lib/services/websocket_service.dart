@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:http/http.dart' as http;
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -28,11 +28,6 @@ class WebSocketService {
       if (token != null) {
         _channel = WebSocketChannel.connect(
           Uri.parse(url),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'X-User-Id': _userId,
-            'X-User-Role': _role,
-          },
         );
         
         _channel!.stream.listen(
@@ -92,5 +87,6 @@ class WebSocketService {
     onMessageCallback = callback;
   }
 
+WebSocketChannel? get channel => _channel;
   bool get isConnected => _isConnected;
 }

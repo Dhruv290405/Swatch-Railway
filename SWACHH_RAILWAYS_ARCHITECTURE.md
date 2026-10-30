@@ -843,3 +843,8 @@ WHAT HAPPENS NEXT?
 If a user can answer **who**, **where**, **what**, **who does it**, **how it is
 proven**, and **who approves it**, they can understand and correctly operate almost
 every workflow in Swachh Railways.
+## Recent Changes (2026-10-28)
+- Backend `authorization.js` `requireContractType`: contract admins/masters/supers/supervisors bypass contract-type gating so they can access station cleaning + MCC + station billing regardless of their `contractType`.
+- Frontend user registration: Contract Masters can create Contractor Admins with editable division/station dropdowns (`_isContractAreaLocked` keyed on creator role; `_shouldShowStationSelection` no longer excludes master and supports railway users).
+- Pushed to `atul`: commits 5d13741d, cc615dcc, c44d760b, 65025f50, 0827157a.
+

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../services/api_services.dart';
 import '../services/websocket_service.dart';
@@ -398,5 +399,4 @@ class AuthProvider extends ChangeNotifier {
       }
     });
   }
-}
 }

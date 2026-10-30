@@ -7,15 +7,11 @@ import '../view/obhs_screens/mcc/obhs_mcc_router.dart';
 import '../view/mcc/mcc_router.dart';
 
 void navigateUser(BuildContext context, UserModel user) {
-  // Normalize the role the same way ObhsMccRouter does, so casing and spacing
-  // in the stored role ("Janitor", "contractor master", ...) never matter.
   final role = user.role.toUpperCase().replaceAll(' ', '_');
 
-  // OBHS roles historically served by ObhsMccRouter (CTS, Janitor, Attendant,
-  // Worker). They keep that screen even when no contractType is set.
-  const obhsRoles = {'CTS', 'JANITOR', 'ATTENDANT', 'WORKER'};
+  const obhsRoles = {'CTS', 'WORKER'};
 
-  const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF'};
+  const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF', 'JANITOR', 'ATTENDANT'};
   final stationWorkerType = (user.workerType ?? '').toUpperCase();
   final isStationCleaningWorker =
       user.contractType == 'station_cleaning' &&

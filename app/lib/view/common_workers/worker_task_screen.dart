@@ -1210,7 +1210,7 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
       double? lng;
       try {
         final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          desiredAccuracy: LocationAccuracy.high,
         );
         lat = pos.latitude;
         lng = pos.longitude;

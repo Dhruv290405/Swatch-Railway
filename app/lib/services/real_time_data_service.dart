@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/real_time_data_service.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 import '../providers/auth_provider.dart';
 
 class RealTimeIndicator extends StatelessWidget {
@@ -22,13 +23,13 @@ class RealTimeIndicator extends StatelessWidget {
         
         return Stack(
           children: [
-            child,
+            child!,
             if (!isConnected && isLoggedIn)
               Positioned(
                 top: 4,
                 right: 4,
                 child: Container(
-                  padding: const EdgeInsets.small(),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(4),
@@ -45,7 +46,7 @@ class RealTimeIndicator extends StatelessWidget {
                 bottom: 4,
                 right: 4,
                 child: Container(
-                  padding: const EdgeInsets.small(),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: connectionColor,
                     borderRadius: BorderRadius.circular(4),

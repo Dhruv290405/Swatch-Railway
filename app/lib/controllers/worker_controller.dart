@@ -664,10 +664,8 @@ class WorkerController extends GetxController {
     try {
       // Try to get current position with a balanced accuracy first
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 20),
-        ),
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 20),
       );
     } catch (e) {
       debugPrint('Location Step 1 Failed: $e');
@@ -681,10 +679,8 @@ class WorkerController extends GetxController {
       // Fallback 2: Coarse/Low Accuracy with longer timeout
       try {
         return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 15),
-          ),
+          desiredAccuracy: LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 15),
         );
       } catch (e2) {
         debugPrint('Location Step 2 Failed: $e2');
@@ -1010,3 +1006,4 @@ class WorkerController extends GetxController {
 
   void clearError() => errorMessage.value = '';
 }
+

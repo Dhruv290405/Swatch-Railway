@@ -467,7 +467,7 @@ class _ComplaintFormScreenState extends State<ComplaintFormScreen> {
     setState(() => _gpsLoading = true);
     try {
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 15)),
+        desiredAccuracy: LocationAccuracy.high, timeLimit: const Duration(seconds: 15),
       );
       setState(() { _latitude = pos.latitude; _longitude = pos.longitude; });
     } catch (_) {
