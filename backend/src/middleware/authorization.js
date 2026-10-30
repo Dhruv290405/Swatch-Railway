@@ -105,6 +105,10 @@ export function requireContractType(...allowedTypes) {
     if (role.includes('ADMIN') || role.includes('MASTER') || role.includes('SUPER') || role.includes('SUPERVISOR')) {
       return next();
     }
+    // Janitors/attendants/workers can mark attendance/tasks even if contractType differs/missing.
+    if (role.includes('JANITOR') || role.includes('ATTENDANT') || role === 'WORKER' || role === 'RAILWAY_WORKER') {
+      return next();
+    }
     if (userContractType && !allowedTypes.includes(userContractType)) {
       throw new ForbiddenError(`Access denied. Requires contract type: ${allowedTypes.join(' or ')}`);
     }
