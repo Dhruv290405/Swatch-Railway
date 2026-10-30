@@ -15,6 +15,9 @@ class ObhsMccRouter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final role = user.role.toUpperCase().replaceAll(' ', '_');
+    if (role.contains('JANITOR') || role.contains('ATTENDANT')) {
+      return WorkerMobileNavBar(user: user);
+    }
     switch (role) {
       case 'CM':
       case 'COMPANY_MASTER':
@@ -28,10 +31,6 @@ class ObhsMccRouter extends StatelessWidget {
       case 'CS':
       case 'CONTRACTOR_SUPERVISOR':
         return CsFieldExecutionScreen(user: user);
-      case 'JANITOR':
-      case 'WORKER':
-      case 'ATTENDANT':
-        return WorkerMobileNavBar(user: user);
       default:
         return const Scaffold(
           body: Center(
