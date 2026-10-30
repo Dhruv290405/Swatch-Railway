@@ -630,7 +630,6 @@ class WorkerController extends GetxController {
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.front,
       imageQuality: 80,
-      maxWidth: 1280,
     );
 
     if (photo == null) {
