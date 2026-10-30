@@ -541,8 +541,8 @@ class UserService {
     const targetRole = normalizeRole(userData.role);
 
     if (approverRole === 'CONTRACTOR_ADMIN') {
-      if (targetRole !== 'CONTRACTOR_SUPERVISOR') {
-        throw new ForbiddenError('Contractor Admin can only approve Contractor Supervisor users.');
+      if (!['CONTRACTOR_SUPERVISOR', 'JANITOR', 'ATTENDANT'].includes(targetRole)) {
+        throw new ForbiddenError('Contractor Admin can only approve Contractor Supervisor, Janitor, and Attendant users.');
       }
       if (entityId && userData.entityId && entityId !== userData.entityId) {
         throw new ForbiddenError('You can only approve users under your own entity.');
