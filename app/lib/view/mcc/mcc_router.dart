@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:crm_train/model/user_model.dart';
 
+import '../../common_workers/worker_mobile_nav_bar.dart';
 import 'mcc_hub_screen.dart';
-import 'mcc_worker_task_board_screen.dart';
 
 class MccRouter extends StatelessWidget {
   final UserModel user;
@@ -25,7 +25,7 @@ class MccRouter extends StatelessWidget {
       case 'JANITOR':
       case 'WORKER':
       case 'ATTENDANT':
-        return MccWorkerTaskBoardScreen(user: user);
+        return WorkerMobileNavBar(user: user);
       default:
         return const Scaffold(
           body: Center(
