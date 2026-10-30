@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:crm_train/model/user_model.dart';
 
-import '../../common_workers/worker_mobile_nav_bar.dart';
+import '../common_workers/worker_mobile_nav_bar.dart';
 import 'mcc_hub_screen.dart';
 
 class MccRouter extends StatelessWidget {
