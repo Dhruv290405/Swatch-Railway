@@ -1009,6 +1009,7 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.all(12),
           ),
+          onChanged: (_) => setState(() {}),
           onTap: () => WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_scrollController.hasClients) {
               _scrollController.animateTo(
@@ -1179,7 +1180,6 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
     final photo = await picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 80,
-      maxWidth: 1280,
     );
 
     if (photo == null) return;
