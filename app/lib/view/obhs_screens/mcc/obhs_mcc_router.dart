@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:crm_train/model/user_model.dart';
 
+import '../../common_workers/worker_mobile_nav_bar.dart';
 import 'cm_dashboard_screen.dart';
 import 'ca_dashboard_screen.dart';
 import 'cts_train_view_screen.dart';
 import 'cs_field_execution_screen.dart';
-import 'janitor_home_screen.dart';
-import 'attendant_linen_screen.dart';
-import 'attendant_home_screen.dart';
 
 class ObhsMccRouter extends StatelessWidget {
   final UserModel user;
@@ -31,14 +29,9 @@ class ObhsMccRouter extends StatelessWidget {
       case 'CONTRACTOR_SUPERVISOR':
         return CsFieldExecutionScreen(user: user);
       case 'JANITOR':
-        return JanitorHomeScreen(user: user);
       case 'WORKER':
-        if ((user.workerType ?? '').toLowerCase() == 'attendant') {
-          return AttendantHomeScreen(user: user);
-        }
-        return JanitorHomeScreen(user: user);
       case 'ATTENDANT':
-        return AttendantHomeScreen(user: user);
+        return WorkerMobileNavBar(user: user);
       default:
         return const Scaffold(
           body: Center(
