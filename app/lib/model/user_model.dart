@@ -73,6 +73,8 @@ class UserModel {
         return 'Railway Inspector';
       case 'RAILWAY_SUPERVISOR':
         return 'Railway Supervisor';
+      case 'CONTRACTOR_MASTER':
+        return 'Contractor Master';
       case 'CONTRACTOR_ADMIN':
         return 'Contractor Admin';
       case 'CONTRACTOR_SUPERVISOR':

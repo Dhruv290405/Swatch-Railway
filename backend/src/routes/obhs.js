@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { authorizeObhsContractAccess } from '../middleware/authorization.js';
+import { authorizeObhsContractAccess, forbidFieldWorkers } from '../middleware/authorization.js';
 import * as obhsController from '../controllers/obhsController.js';
 import { compareFaces } from '../services/rekognitionService.js';
 
@@ -19,8 +19,8 @@ router.post('/api/obhs/attendance', verifyToken, obhsController.markAttendance);
 router.get('/api/obhs/attendance/status', verifyToken, obhsController.getAttendanceStatus);
 router.get('/api/obhs/attendance/list', verifyToken, obhsController.listAttendance);
 router.post('/api/obhs/attendance/report-issue', verifyToken, obhsController.reportAttendanceIssue);
-router.get('/api/obhs/attendance/exceptions', verifyToken, obhsController.getAttendanceExceptions);
-router.post('/api/obhs/attendance/exceptions/action', verifyToken, obhsController.takeAttendanceExceptionAction);
+router.get('/api/obhs/attendance/exceptions', verifyToken, forbidFieldWorkers, obhsController.getAttendanceExceptions);
+router.post('/api/obhs/attendance/exceptions/action', verifyToken, forbidFieldWorkers, obhsController.takeAttendanceExceptionAction);
 router.post('/api/obhs/attendance/verify-face', verifyToken, async (req, res) => {
   const { image1Url, image2Url } = req.body;
   if (!image1Url || !image2Url) return res.status(400).json({ error: 'Both image1Url and image2Url are required.' });
@@ -54,11 +54,11 @@ router.get('/api/obhs/ratings/performance/:employeeId', verifyToken, obhsControl
 router.post('/api/obhs/complaints/raise', verifyToken, obhsController.raiseComplaint);
 router.get('/api/obhs/complaints', verifyToken, obhsController.listComplaints);
 router.patch('/api/obhs/complaints/resolve/:complaintId', verifyToken, obhsController.resolveComplaint);
-router.patch('/api/obhs/complaints/assign/:complaintId', verifyToken, obhsController.assignComplaint);
+router.patch('/api/obhs/complaints/assign/:complaintId', verifyToken, forbidFieldWorkers, obhsController.assignComplaint);
 router.patch('/api/obhs/complaints/escalate/:complaintId', verifyToken, obhsController.escalateComplaint);
-router.patch('/api/obhs/complaints/sla-update/:complaintId', verifyToken, obhsController.updateComplaintSLA);
+router.patch('/api/obhs/complaints/sla-update/:complaintId', verifyToken, forbidFieldWorkers, obhsController.updateComplaintSLA);
 router.get('/api/obhs/complaints/sla-report', verifyToken, obhsController.getSLAReport);
-router.post('/api/obhs/complaints/auto-route', verifyToken, obhsController.autoRouteComplaint);
+router.post('/api/obhs/complaints/auto-route', verifyToken, forbidFieldWorkers, obhsController.autoRouteComplaint);
 
 router.post('/api/obhs/feedback/passenger', verifyToken, obhsController.submitPassengerFeedback);
 router.post('/api/obhs/feedback/official', verifyToken, obhsController.submitOfficialFeedback);
@@ -80,7 +80,7 @@ router.get('/api/obhs/worker/active-run', verifyToken, obhsController.getWorkerA
 
 router.get('/api/obhs/:obhsId', verifyToken, obhsController.getById);
 router.put('/api/obhs/:obhsId', verifyToken, obhsController.update);
-router.put('/api/obhs/:obhsId/approve', verifyToken, obhsController.approve);
+router.put('/api/obhs/:obhsId/approve', verifyToken, forbidFieldWorkers, obhsController.approve);
 
 // ─── STANDALONE FACE VERIFICATION ──────────────────────────────────────────
 

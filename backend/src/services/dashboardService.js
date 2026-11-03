@@ -626,6 +626,28 @@ class DashboardService {
     return result;
   }
 
+  // Aggregate-only user counts (no user documents leave the server).
+  async getUserCounts({ zone, division, depot } = {}) {
+    const snap = await db.collection('users').get();
+    const zones = new Set();
+    const divisions = new Set();
+    const depots = new Set();
+    let railwayUsers = 0;
+    let contractorUsers = 0;
+    snap.forEach((doc) => {
+      const u = doc.data();
+      if (u.zone) zones.add(String(u.zone));
+      if (zone && u.zone !== zone) return;
+      if (u.division) divisions.add(String(u.division));
+      if (division && u.division !== division) return;
+      if (u.depot) depots.add(String(u.depot));
+      if (depot && u.depot !== depot) return;
+      if (u.userType === 'railway') railwayUsers += 1;
+      if (u.userType === 'contractor') contractorUsers += 1;
+    });
+    return { zones: zones.size, divisions: divisions.size, depots: depots.size, railwayUsers, contractorUsers };
+  }
+
   async getUserStats(requesterData = {}, query = {}) {
     const { role, userType, zone: userZone, division: userDiv } = requesterData;
     const zone = query.selectedZone || query.zone || null;

@@ -12,7 +12,10 @@ class MccRouter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final role = user.role.toUpperCase().replaceAll(' ', '_');
-    if (role.contains('JANITOR') || role.contains('ATTENDANT')) {
+    if (role.contains('JANITOR') ||
+        role.contains('ATTENDANT') ||
+        role == 'WORKER' ||
+        role == 'RAILWAY_WORKER') {
       return WorkerMobileNavBar(user: user);
     }
     switch (role) {

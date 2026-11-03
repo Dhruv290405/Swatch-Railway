@@ -1,7 +1,8 @@
 import { dashboardService } from '../services/dashboardService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
-export const stats = asyncHandler(async (req, res) => res.json(await dashboardService.getDashboardStats(req.user, req.query)));
+export const userCounts = asyncHandler(async (req, res) => res.json(await dashboardService.getUserCounts(req.query)));
+export const stats =asyncHandler(async (req, res) => res.json(await dashboardService.getDashboardStats(req.user, req.query)));
 export const railwayDashboardStats = asyncHandler(async (req, res) => res.json(await dashboardService.getRailwayDashboardStats(req.user)));
 export const stationDashboard = asyncHandler(async (req, res) => res.json(await dashboardService.getStationDashboard(req.params.stationId, req.query)));
 export const userStats = asyncHandler(async (req, res) => res.json(await dashboardService.getUserStats(req.user, req.query)));

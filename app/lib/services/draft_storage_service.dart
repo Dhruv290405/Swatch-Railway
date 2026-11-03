@@ -10,6 +10,24 @@ class DraftStorageService {
   static const String _draftKey = 'coach_form_drafts';
   static const String _premisesDraftKey = 'premises_form_drafts';
 
+  /// Per-user key for coach/premises drafts. Drafts saved before per-user
+  /// scoping (global key) are adopted by the first user who opens them.
+  static String _scopedKey(SharedPreferences prefs, String baseKey) {
+    String uid = '';
+    try {
+      final raw = prefs.getString('currentUser');
+      if (raw != null) uid = (jsonDecode(raw)['uid'] ?? '').toString();
+    } catch (_) {}
+    if (uid.isEmpty) return baseKey;
+    final key = '${baseKey}_$uid';
+    final legacy = prefs.getString(baseKey);
+    if (legacy != null && !prefs.containsKey(key)) {
+      prefs.setString(key, legacy);
+      prefs.remove(baseKey);
+    }
+    return key;
+  }
+
   static String _getUserDraftsKey(String userId) {
     return '${_userDraftsKey}_$userId';
   }
@@ -336,12 +354,12 @@ class DraftStorageService {
     }
 
     drafts[draftId] = draftData;
-    await prefs.setString(_draftKey, jsonEncode(drafts));
+    await prefs.setString(_scopedKey(prefs, _draftKey), jsonEncode(drafts));
   }
 
   static Future<Map<String, dynamic>> getAllDrafts() async {
     final prefs = await SharedPreferences.getInstance();
-    final draftsString = prefs.getString(_draftKey);
+    final draftsString = prefs.getString(_scopedKey(prefs, _draftKey));
     if (draftsString == null) return {};
     return Map<String, dynamic>.from(jsonDecode(draftsString));
   }
@@ -355,7 +373,7 @@ class DraftStorageService {
     final prefs = await SharedPreferences.getInstance();
     final drafts = await getAllDrafts();
     drafts.remove(draftId);
-    await prefs.setString(_draftKey, jsonEncode(drafts));
+    await prefs.setString(_scopedKey(prefs, _draftKey), jsonEncode(drafts));
   }
 
   static Future<Map<String, dynamic>?> getDraft(String draftId) async {
@@ -388,12 +406,12 @@ class DraftStorageService {
     }
 
     drafts[draftId] = draftData;
-    await prefs.setString(_premisesDraftKey, jsonEncode(drafts));
+    await prefs.setString(_scopedKey(prefs, _premisesDraftKey), jsonEncode(drafts));
   }
 
   static Future<Map<String, dynamic>> getAllPremisesDrafts() async {
     final prefs = await SharedPreferences.getInstance();
-    final draftsString = prefs.getString(_premisesDraftKey);
+    final draftsString = prefs.getString(_scopedKey(prefs, _premisesDraftKey));
     if (draftsString == null) return {};
     return Map<String, dynamic>.from(jsonDecode(draftsString));
   }
@@ -407,7 +425,7 @@ class DraftStorageService {
     final prefs = await SharedPreferences.getInstance();
     final drafts = await getAllPremisesDrafts();
     drafts.remove(draftId);
-    await prefs.setString(_premisesDraftKey, jsonEncode(drafts));
+    await prefs.setString(_scopedKey(prefs, _premisesDraftKey), jsonEncode(drafts));
   }
 
   static Future<Map<String, dynamic>?> getPremisesDraft(String draftId) async {

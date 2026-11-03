@@ -107,7 +107,7 @@ export function computeItemEstimate({
  */
 export function computeVariationStatement({
   originalContractValue = 0,
-  executedOriginalValue = 0,
+  executedOriginalValue = originalContractValue,
   reductionValue = 0,
   additionalWorkValue = 0,
   excessExecutionValue = 0,

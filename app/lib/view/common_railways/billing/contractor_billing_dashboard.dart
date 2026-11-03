@@ -3,7 +3,11 @@ import 'package:crm_train/services/api_services.dart';
 import 'package:crm_train/utills/app_colors.dart';
 import 'package:crm_train/view/common_railways/billing/monthly_bill_screen.dart';
 import 'package:crm_train/view/common_railways/billing/billing_report_screen.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ContractorBillingDashboard extends StatefulWidget {
   final String stationId;
@@ -63,6 +67,36 @@ class _ContractorBillingDashboardState extends State<ContractorBillingDashboard>
     } catch (e) {
       if (mounted) setState(() { isLoading = false; });
     }
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _downloadInvoice(Map<String, dynamic>? bill) async {
+    final uid = bill?['uid']?.toString() ?? '';
+    if (uid.isEmpty) return _toast('No bill available');
+    try {
+      final token = await ApiService.getToken();
+      final url = await ApiService.getInvoicePdfUrl(uid);
+      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      if (res.statusCode != 200) {
+        return _toast('Invoice not available yet. It is generated once the bill is approved.');
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/Invoice_$uid.pdf');
+      await file.writeAsBytes(res.bodyBytes);
+      await OpenFilex.open(file.path);
+    } catch (e) {
+      _toast('Could not download invoice');
+    }
+  }
+
+  void _openBillSummary(Map<String, dynamic>? bill) {
+    final uid = bill?['uid']?.toString() ?? '';
+    if (uid.isEmpty) return _toast('No bill available');
+    Navigator.push(context, MaterialPageRoute(builder: (_) => MonthlyBillScreen(billId: uid)));
   }
 
   @override
@@ -242,9 +276,9 @@ class _ContractorBillingDashboardState extends State<ContractorBillingDashboard>
           const SizedBox(height: 16),
         ],
         Row(children: [
-          Expanded(child: OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.download, size: 16), label: const Text('Download Invoice', style: TextStyle(fontSize: 11)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)))),
+          Expanded(child: OutlinedButton.icon(onPressed: () => _downloadInvoice(latest), icon: const Icon(Icons.download, size: 16), label: const Text('Download Invoice', style: TextStyle(fontSize: 11)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)))),
           const SizedBox(width: 12),
-          Expanded(child: OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.summarize, size: 16), label: const Text('Bill Summary', style: TextStyle(fontSize: 11)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)))),
+          Expanded(child: OutlinedButton.icon(onPressed: () => _openBillSummary(latest), icon: const Icon(Icons.summarize, size: 16), label: const Text('Bill Summary', style: TextStyle(fontSize: 11)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)))),
         ]),
       ]),
     );

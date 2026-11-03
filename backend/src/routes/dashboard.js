@@ -1,9 +1,11 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
 import * as dashboardController from '../controllers/dashboardController.js';
+import { forbidFieldWorkers } from '../middleware/authorization.js';
 
 const router = express.Router();
 
+router.get('/api/dashboard/user-counts', verifyToken, forbidFieldWorkers, dashboardController.userCounts);
 router.get('/api/dashboard/stats', verifyToken, dashboardController.stats);
 router.get('/api/dashboard/admin', verifyToken, dashboardController.adminDashboard);
 router.get('/api/dashboard/zone/:zoneId', verifyToken, dashboardController.zoneDashboard);

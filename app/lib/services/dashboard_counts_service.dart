@@ -1,10 +1,39 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../repositories/obhs_repository.dart';
+import 'api_services.dart';
 
 class FirebaseCountService {
+  /// Aggregate user counts from the authorized backend endpoint. Returns null
+  /// on any failure so callers fall back to the legacy Firestore path.
+  static Future<Map<String, dynamic>?> _backendUserCounts(
+      {String? zone, String? division, String? depot}) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) return null;
+      final params = <String, String>{
+        if (zone != null && zone.isNotEmpty) 'zone': zone,
+        if (division != null && division.isNotEmpty) 'division': division,
+        if (depot != null && depot.isNotEmpty) 'depot': depot,
+      };
+      final uri = Uri.parse('${ApiService.baseUrl}/api/dashboard/user-counts')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final res = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body);
+      return body is Map<String, dynamic> ? body : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
 
   static Future<int> getUniqueZoneCount() async {
+    final remote = await _backendUserCounts();
+    if (remote != null && remote['zones'] is num) return (remote['zones'] as num).toInt();
     try {
       final firestore = FirebaseFirestore.instance;
 
@@ -21,10 +50,6 @@ class FirebaseCountService {
       if (snapshot.docs.isEmpty) {
         print("WARNING: Users collection is EMPTY!");
         return 0;
-      }
-
-      for (int i = 0; i < (snapshot.docs.length > 3 ? 3 : snapshot.docs.length); i++) {
-        print("Doc $i data: ${snapshot.docs[i].data()}");
       }
 
       final divisions = <String>{};
@@ -47,6 +72,8 @@ class FirebaseCountService {
   }
 
   static Future<int> getUniqueDivisionCount({String? zone}) async {
+    final remote = await _backendUserCounts(zone: zone);
+    if (remote != null && remote['divisions'] is num) return (remote['divisions'] as num).toInt();
     try {
       final firestore = FirebaseFirestore.instance;
       Query query = firestore.collection('users');
@@ -73,6 +100,8 @@ class FirebaseCountService {
   }
 
   static Future<int> getUniqueDepotCount({String? zone, String? division}) async {
+    final remote = await _backendUserCounts(zone: zone, division: division);
+    if (remote != null && remote['depots'] is num) return (remote['depots'] as num).toInt();
     try {
       final firestore = FirebaseFirestore.instance;
       Query query = firestore.collection('users');
@@ -104,6 +133,8 @@ class FirebaseCountService {
   }
 
   static Future<int> getRailwayUserCount({String? zone, String? division, String? depot}) async {
+    final remote = await _backendUserCounts(zone: zone, division: division, depot: depot);
+    if (remote != null && remote['railwayUsers'] is num) return (remote['railwayUsers'] as num).toInt();
     try {
       final firestore = FirebaseFirestore.instance;
       Query query = firestore.collection('users');
@@ -131,6 +162,8 @@ class FirebaseCountService {
   }
 
   static Future<int> getContractorUserCount({String? zone, String? division, String? depot}) async {
+    final remote = await _backendUserCounts(zone: zone, division: division, depot: depot);
+    if (remote != null && remote['contractorUsers'] is num) return (remote['contractorUsers'] as num).toInt();
     try {
       final firestore = FirebaseFirestore.instance;
       Query query = firestore.collection('users');

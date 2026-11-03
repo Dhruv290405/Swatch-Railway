@@ -3,9 +3,9 @@ import { z } from 'zod';
 export const measurementTypeValues = [
   'sq_ft', 'sq_meter', 'running_ft', 'count', 'number', 'quantity',
   'unit', 'as_available', 'not_applicable', 'service', 'service_based',
-] as const;
+];
 
-export const frequencyUnitValues = ['day', 'week', 'fortnight', 'month', 'shift'] as const;
+export const frequencyUnitValues = ['day', 'week', 'fortnight', 'month', 'shift'];
 
 // An area / work item must not be forced to carry sqft. Validation is
 // measurement-type aware: numeric measurements require a positive quantity,

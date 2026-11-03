@@ -177,9 +177,9 @@ describe('Helper: _resolveStationId', () => {
     expect(stationCleaningService._resolveStationId('requested-id', user)).toBe('STN-A');
   });
 
-  it('returns user.stationId for STATION_MASTER', () => {
-    const user = makeUser({ role: 'STATION_MASTER', stationId: 'STN-A' });
-    expect(stationCleaningService._resolveStationId('other', user)).toBe('STN-A');
+  it('honours the requested station for non-supervisor roles', () => {
+    const user = makeUser({ role: 'CONTRACTOR_ADMIN', stationId: 'STN-A' });
+    expect(stationCleaningService._resolveStationId('other', user)).toBe('other');
   });
 
   it('returns requestedStationId for SUPER_ADMIN', () => {
@@ -194,18 +194,18 @@ describe('Helper: _resolveStationId', () => {
 });
 
 describe('Helper: _resolveAreaId', () => {
-  it('returns user.areaId for PLATFORM_MASTER', () => {
-    const user = makeUser({ role: 'PLATFORM_MASTER', areaId: 'area-1' });
-    expect(stationCleaningService._resolveAreaId('other', user)).toBe('area-1');
+  it('always returns the requested area (no role-based override)', () => {
+    const user = makeUser({ role: 'RAILWAY_SUPERVISOR', areaId: 'area-1' });
+    expect(stationCleaningService._resolveAreaId('other', user)).toBe('other');
   });
 
-  it('returns requestedAreaId for non-PLATFORM_MASTER', () => {
+  it('returns requestedAreaId for SUPER_ADMIN', () => {
     const user = makeUser({ role: 'SUPER_ADMIN', areaId: 'area-1' });
     expect(stationCleaningService._resolveAreaId('requested', user)).toBe('requested');
   });
 
   it('returns requestedAreaId when areaId is null', () => {
-    const user = makeUser({ role: 'PLATFORM_MASTER', areaId: null });
+    const user = makeUser({ role: 'CONTRACTOR_ADMIN', areaId: null });
     expect(stationCleaningService._resolveAreaId('requested', user)).toBe('requested');
   });
 });
@@ -218,7 +218,7 @@ describe('Helper: _isMasterOrAdmin', () => {
     });
   }
 
-  const nonMasterRoles = ['RAILWAY_SUPERVISOR', 'STATION_MASTER', 'PLATFORM_MASTER', 'WORKER', 'JANITOR'];
+  const nonMasterRoles = ['RAILWAY_SUPERVISOR', 'CONTRACTOR_ADMIN', 'WORKER', 'JANITOR'];
   for (const role of nonMasterRoles) {
     it(`returns false for ${role}`, () => {
       expect(stationCleaningService._isMasterOrAdmin(makeUser({ role }))).toBe(false);
@@ -254,99 +254,64 @@ function makeAllRolesList(roles) {
   return [...new Set(['SUPER_ADMIN', ...roles])];
 }
 
-const stationCleaningPermissions = {
-  MANAGE_AREAS: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER']), VIEW: ['RAILWAY_SUPERVISOR', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR'] },
-  MANAGE_ZONES: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER']), VIEW: ['RAILWAY_SUPERVISOR', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR'] },
-  MANAGE_CONTRACTORS: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN']), VIEW: ['RAILWAY_SUPERVISOR', 'CONTRACTOR_SUPERVISOR', 'PLATFORM_MASTER', 'AREA_MASTER'] },
-  MANAGE_SCHEDULES: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'PLATFORM_MASTER']), VIEW: ['RAILWAY_SUPERVISOR', 'CONTRACTOR_SUPERVISOR', 'AREA_MASTER'] },
-  MANAGE_RUNS: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN']), VIEW: ['RAILWAY_SUPERVISOR', 'CONTRACTOR_SUPERVISOR', 'PLATFORM_MASTER', 'AREA_MASTER'] },
-  VIEW_RUNS: { VIEW: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'AREA_MASTER']) },
-  SUBMIT_TASKS: { COMP: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'PLATFORM_MASTER', 'RAILWAY_SUPERVISOR', 'AREA_MASTER']) },
-  VIEW_TASKS: { VIEW: makeAllRolesList(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'AREA_MASTER']) },
+// Contract: ROLE_PERMISSIONS in roles.js, as reflected by the tester guide
+// (RAILWAY_MASTER view-only, CONTRACTOR_ADMIN configures, RAILWAY_ADMIN approves,
+// RAILWAY_INSPECTOR inspects, field workers execute). STATION/AREA/PLATFORM_MASTER do not exist.
+const SA = 'SUPER_ADMIN';
+const FIELD = ['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'];
+const MGMT = [SA, 'COMPANY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'CONTRACTOR_ADMIN'];
+const stationCleaningContract = {
+  MANAGE_AREAS: [...MGMT.filter(r => r !== 'CONTRACTOR_ADMIN'), 'CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN'],
+  VIEW_AREAS: [SA, 'COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'RAILWAY_INSPECTOR', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR'],
+  MANAGE_CONTRACTORS: [...MGMT, 'CONTRACTOR_MASTER'],
+  VIEW_CONTRACTORS: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR'],
+  MANAGE_SCHEDULES: MGMT,
+  VIEW_SCHEDULES: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR'],
+  MANAGE_RUNS: MGMT,
+  VIEW_RUNS: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  SUBMIT_TASKS: [...MGMT, 'RAILWAY_SUPERVISOR', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  VIEW_TASKS: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_INSPECTOR', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  VIEW_DASHBOARD: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  MANAGE_FREQUENCIES: MGMT,
+  VIEW_FREQUENCIES: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_INSPECTOR', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER'],
+  REJECT_FORM: [SA, 'RAILWAY_ADMIN', 'CONTRACTOR_ADMIN'],
+  APPROVE_FORM_MANPOWER: [SA, 'RAILWAY_ADMIN', 'CONTRACTOR_ADMIN'],
+  SCORE_FORM: [SA, 'RAILWAY_ADMIN', 'CONTRACTOR_ADMIN'],
+  MANAGE_PEST_CONTROL: [...MGMT, ...FIELD],
+  VIEW_PEST_CONTROL: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  MANAGE_GARBAGE: [...MGMT, ...FIELD],
+  VIEW_GARBAGE: [...MGMT, 'RAILWAY_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', ...FIELD],
+  MANAGE_AREA_ASSIGNMENTS: [SA, 'COMPANY_MASTER', 'CONTRACTOR_ADMIN'],
+  VIEW_AREA_ASSIGNMENTS: [SA, 'COMPANY_MASTER', 'CONTRACTOR_ADMIN'],
+  MANAGE_DEPLOYMENTS: MGMT,
+  MANAGE_SHIFTS: MGMT,
+  ASSIGN_SHIFT: MGMT,
+  MANAGE_ACTIVITIES: MGMT,
+  MANAGE_INSPECTIONS: [...MGMT, 'RAILWAY_INSPECTOR'],
+  MANAGE_MACHINES: MGMT,
 };
 
 describe('Station Cleaning Role-Permission Matrix', () => {
   const allRoles = Object.keys(ROLES);
+  for (const [perm, allowed] of Object.entries(stationCleaningContract)) {
+    it(`${perm} - exactly the contracted roles hold it`, () => {
+      for (const role of allRoles) {
+        expect(hasPermission(role, perm), `${role} ${perm} mismatch`).toBe(allowed.includes(role));
+      }
+    });
+  }
 
-  it('MANAGE_AREAS - only COMP roles have it', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_AREAS.COMP.includes(role);
-      expect(hasPermission(role, 'MANAGE_AREAS'), `${role} MANAGE_AREAS mismatch`).toBe(shouldHave);
+  it('field workers never hold management permissions', () => {
+    for (const role of FIELD) {
+      for (const perm of ['MANAGE_AREAS', 'MANAGE_CONTRACTORS', 'MANAGE_SCHEDULES', 'MANAGE_RUNS', 'APPROVE_FORM_MANPOWER', 'REJECT_FORM', 'SCORE_FORM']) {
+        expect(hasPermission(role, perm), `${role} must not hold ${perm}`).toBe(false);
+      }
     }
   });
 
-  it('VIEW_AREAS - all except PASSENGER, CTS, workers', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_AREAS.COMP.includes(role)
-        || stationCleaningPermissions.MANAGE_AREAS.VIEW.includes(role);
-      expect(hasPermission(role, 'VIEW_AREAS'), `${role} VIEW_AREAS mismatch`).toBe(shouldHave || false);
-    }
-  });
-
-  it('MANAGE_CONTRACTORS - correct roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_CONTRACTORS.COMP.includes(role);
-      expect(hasPermission(role, 'MANAGE_CONTRACTORS'), `${role} mismatch`).toBe(shouldHave);
-    }
-  });
-
-  it('VIEW_CONTRACTORS - manage roles + view-only roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_CONTRACTORS.COMP.includes(role)
-        || stationCleaningPermissions.MANAGE_CONTRACTORS.VIEW.includes(role);
-      expect(hasPermission(role, 'VIEW_CONTRACTORS'), `${role} mismatch`).toBe(shouldHave || false);
-    }
-  });
-
-  it('MANAGE_RUNS - correct roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_RUNS.COMP.includes(role);
-      expect(hasPermission(role, 'MANAGE_RUNS'), `${role} mismatch`).toBe(shouldHave);
-    }
-  });
-
-  it('VIEW_RUNS - manage roles + view-only roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.VIEW_RUNS.VIEW.includes(role);
-      expect(hasPermission(role, 'VIEW_RUNS'), `${role} mismatch`).toBe(shouldHave || false);
-    }
-  });
-
-  it('MANAGE_SCHEDULES - correct roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_SCHEDULES.COMP.includes(role);
-      expect(hasPermission(role, 'MANAGE_SCHEDULES'), `${role} mismatch`).toBe(shouldHave);
-    }
-  });
-
-  it('VIEW_SCHEDULES - manage roles + read roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.MANAGE_SCHEDULES.COMP.includes(role)
-        || stationCleaningPermissions.MANAGE_SCHEDULES.VIEW.includes(role);
-      expect(hasPermission(role, 'VIEW_SCHEDULES'), `${role} mismatch`).toBe(shouldHave || false);
-    }
-  });
-
-  it('SUBMIT_TASKS - correct roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.SUBMIT_TASKS.COMP.includes(role);
-      expect(hasPermission(role, 'SUBMIT_TASKS'), `${role} mismatch`).toBe(shouldHave);
-    }
-  });
-
-  it('VIEW_TASKS - correct roles', () => {
-    for (const role of allRoles) {
-      const shouldHave = stationCleaningPermissions.VIEW_TASKS.VIEW.includes(role);
-      expect(hasPermission(role, 'VIEW_TASKS'), `${role} mismatch`).toBe(shouldHave || false);
-    }
-  });
-
-  it('VIEW_DASHBOARD - all non-privileged roles except PASSENGER/CTS', () => {
-    const has = ['SUPER_ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER',
-      'AREA_MASTER', 'PLATFORM_MASTER', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR',
-      'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'];
-    for (const role of allRoles) {
-      expect(hasPermission(role, 'VIEW_DASHBOARD'), `${role} mismatch`).toBe(has.includes(role) || false);
+  it('PASSENGER holds no station-cleaning permission', () => {
+    for (const perm of Object.keys(stationCleaningContract)) {
+      expect(hasPermission('PASSENGER', perm), `PASSENGER ${perm}`).toBe(false);
     }
   });
 });
@@ -356,38 +321,7 @@ describe('Station Cleaning Role-Permission Matrix', () => {
    ========================================================================== */
 
 describe('Authorization middleware - station cleaning endpoints', () => {
-  function withSA(roles) {
-    return [...new Set(['SUPER_ADMIN', ...roles])];
-  }
-
-  const permConfigs = {
-    'MANAGE_AREAS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER']),
-    'MANAGE_CONTRACTORS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN']),
-    'MANAGE_SCHEDULES': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'PLATFORM_MASTER']),
-    'MANAGE_RUNS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN']),
-    'VIEW_RUNS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'AREA_MASTER']),
-    'SUBMIT_TASKS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'PLATFORM_MASTER', 'RAILWAY_SUPERVISOR', 'AREA_MASTER']),
-    'VIEW_TASKS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'AREA_MASTER']),
-    'MANAGE_FREQUENCIES': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'PLATFORM_MASTER']),
-    'VIEW_FREQUENCIES': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER']),
-    'REJECT_FORM': withSA(['RAILWAY_ADMIN', 'STATION_MASTER', 'RAILWAY_SUPERVISOR']),
-    'APPROVE_FORM_MANPOWER': withSA(['RAILWAY_ADMIN', 'STATION_MASTER', 'RAILWAY_SUPERVISOR']),
-    'SCORE_FORM': withSA(['RAILWAY_ADMIN', 'STATION_MASTER', 'RAILWAY_SUPERVISOR']),
-    'MANAGE_PEST_CONTROL': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'PLATFORM_MASTER']),
-    'VIEW_PEST_CONTROL': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT']),
-    'MANAGE_GARBAGE': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT', 'PLATFORM_MASTER']),
-    'VIEW_GARBAGE': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_SUPERVISOR', 'PLATFORM_MASTER', 'CONTRACTOR_SUPERVISOR', 'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT']),
-    'MANAGE_AREA_ASSIGNMENTS': withSA(['COMPANY_MASTER', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER', 'RAILWAY_MASTER']),
-    'VIEW_AREA_ASSIGNMENTS': withSA(['COMPANY_MASTER', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER', 'RAILWAY_MASTER']),
-    'MANAGE_DEPLOYMENTS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER']),
-    'MANAGE_SHIFTS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER', 'CONTRACTOR_ADMIN']),
-    'ASSIGN_SHIFT': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER', 'CONTRACTOR_ADMIN']),
-    'MANAGE_ACTIVITIES': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'PLATFORM_MASTER']),
-    'MANAGE_INSPECTIONS': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER']),
-    'MANAGE_MACHINES': withSA(['COMPANY_MASTER', 'RAILWAY_MASTER', 'ADMIN', 'RAILWAY_ADMIN', 'STATION_MASTER', 'AREA_MASTER', 'CONTRACTOR_ADMIN', 'PLATFORM_MASTER']),
-  };
-
-  for (const [perm, allowedRoles] of Object.entries(permConfigs)) {
+  for (const [perm, allowedRoles] of Object.entries(stationCleaningContract)) {
     it(`${perm} - allowed roles have permission, denied roles throw`, async () => {
       const { requirePermission } = await import('../src/middleware/authorization.js');
       const middleware = requirePermission(PERMISSIONS[perm]);

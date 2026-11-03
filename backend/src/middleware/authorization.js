@@ -56,6 +56,30 @@ export function requireAnyRole(...allowedRoles) {
   };
 }
 
+const FIELD_WORKER_ROLES = ['JANITOR', 'ATTENDANT', 'WORKER', 'RAILWAY_WORKER', 'PASSENGER'];
+
+// Blocks field-level roles from supervisory endpoints; every other role passes through.
+export function forbidFieldWorkers(req, res, next) {
+  const role = (req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
+  if (FIELD_WORKER_ROLES.includes(role)) {
+    throw new ForbiddenError('Access denied. Supervisory role required.');
+  }
+  next();
+}
+
+// Field workers may only read records keyed by their own uid; supervisory roles are unaffected.
+export function requireSelfForFieldWorkers(paramName) {
+  return (req, res, next) => {
+    const role = (req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
+    const target = req.params?.[paramName];
+    const uid = req.user?.uid;
+    if (FIELD_WORKER_ROLES.includes(role) && target && uid && target !== uid) {
+      throw new ForbiddenError('You can only access your own records');
+    }
+    next();
+  };
+}
+
 export function requireEntityAccess(req, res, next) {
   const { userType, entityId: userEntityId } = req.user || {};
   const targetEntityId = req.params.uid || req.query.entityId || req.body.entityId;
@@ -186,6 +210,7 @@ export function requireMasterAccess(minRole) {
       'RAILWAY_ADMIN': 60,
       'RAILWAY_INSPECTOR': 52,
       'RAILWAY_SUPERVISOR': 50,
+      'CONTRACTOR_MASTER': 47,
       'CONTRACTOR_ADMIN': 45,
       'CONTRACTOR_SUPERVISOR': 40,
       'CTS': 30,
@@ -221,7 +246,7 @@ export function requireDashboardLevelAccess(level) {
       'SUPER_ADMIN': 100, 'COMPANY_MASTER': 90, 'RAILWAY_MASTER': 80,
       'ADMIN': 70, 'RAILWAY_ADMIN': 60,
       'RAILWAY_INSPECTOR': 52,
-      'RAILWAY_SUPERVISOR': 50, 'CONTRACTOR_ADMIN': 45,
+      'RAILWAY_SUPERVISOR': 50, 'CONTRACTOR_MASTER': 47, 'CONTRACTOR_ADMIN': 45,
       'CONTRACTOR_SUPERVISOR': 40, 'CTS': 30,
       'WORKER': 10, 'RAILWAY_WORKER': 10, 'JANITOR': 10, 'ATTENDANT': 10, 'PASSENGER': 1
     };

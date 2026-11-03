@@ -184,7 +184,8 @@ describe('computeDailyTaskBilling - AREA -> SQFT -> RATE -> EXECUTION daily bill
     expect(r.grossAmount).toBe(r.actualExecutionValue);
     expect(r.expectedSqFt).toBeCloseTo(329044, 0);
     expect(r.executedSqFt).toBeCloseTo(256783, 0);
-    expect(r.taskExecutionScore).toBeCloseTo(78.05, 1);      // 256783 / 329044
+    // Score is value-weighted (actual / expected work value), not raw sq.ft.
+    expect(r.taskExecutionScore).toBeCloseTo(78.95, 1);      // 150052.35 / 190069.80
   });
 
   it('weights categories 50/20/30 and caps eligible at actual execution', () => {
@@ -204,9 +205,8 @@ describe('computeDailyTaskBilling - AREA -> SQFT -> RATE -> EXECUTION daily bill
     expect(r.categories.find(c => c.dataSource === 'inspection').marks).toBe(16);
     expect(r.categories.find(c => c.dataSource === 'feedback').marks).toBe(30);
     expect(r.overallScore).toBe(71);
-    expect(r.lessExecutionPercent).toBe(29);
-    expect(r.lessExecutionAmount).toBeCloseTo(580, 2);     // 2000 x 29%
-    expect(r.eligibleAmount).toBeCloseTo(1000, 2);          // min(actual 1000, 2000-580)
+    // Work value stays the executed value; the score only selects the penalty slab.
+    expect(r.grossEligibleWorkValue).toBeCloseTo(1000, 2);
     expect(r.penalty.totalPenalty).toBe(20);                // slab 60-85 -> 2% of eligible
     expect(r.netAmount).toBeCloseTo(980, 2);
   });
@@ -228,8 +228,8 @@ describe('computeDailyTaskBilling - AREA -> SQFT -> RATE -> EXECUTION daily bill
     expect(insp.marks).toBe(20);
     expect(fb.marks).toBe(30);
     expect(r.overallScore).toBe(100); // 50 + 20 + 30 (all full)
-    expect(r.lessExecutionPercent).toBe(0);
-    expect(r.eligibleAmount).toBe(1000);
+    expect(r.incompleteExecutionPenaltyAmount).toBe(0);
+    expect(r.grossEligibleWorkValue).toBe(1000);
   });
 
   it('never pays for unexecuted passes (eligible capped at actual value)', () => {
@@ -246,10 +246,10 @@ describe('computeDailyTaskBilling - AREA -> SQFT -> RATE -> EXECUTION daily bill
     });
     expect(r.expectedWorkValue).toBe(2000);
     expect(r.actualExecutionValue).toBe(1000);
-    // exec 1000/2000 x50%=25, insp 10, fb 15 -> 50; less = 1000 -> eligible = min(1000, 2000-1000) = 1000
+    // exec 1000/2000 x50%=25, insp 10, fb 15 -> 50; eligible work value is the executed value only
     expect(r.overallScore).toBe(50);
-    expect(r.lessExecutionAmount).toBe(1000);
-    expect(r.eligibleAmount).toBe(1000);
+    expect(r.grossEligibleWorkValue).toBe(1000);
+    expect(r.grossEligibleWorkValue).toBeLessThanOrEqual(r.actualExecutionValue);
   });
 
   it('applies the configured penalty slab keyed off the final score', () => {

@@ -1060,10 +1060,14 @@ class ReportService {
     return { pdfBuffer, filename: `MONTHLY_${division}_${endStr}.pdf` };
   }
 
-  async getInvoicePdf(invoiceUid) {
+  async getInvoicePdf(invoiceUid, user = null) {
     const doc = await db.collection('billingReports').doc(invoiceUid).get();
     if (!doc.exists) throw new NotFoundError('Billing report not found');
     const bill = doc.data();
+    // Contractors may only download their own entity's invoices (legacy bills without entityId pass).
+    if (user?.userType === 'contractor' && user.entityId && bill.entityId && bill.entityId !== user.entityId) {
+      throw new ForbiddenError('You can only access your own company invoices');
+    }
     if (bill.status !== 'APPROVED' && !bill.invoiceNumber) {
       throw new ValidationError('Invoice not yet generated. Please generate invoice first.');
     }

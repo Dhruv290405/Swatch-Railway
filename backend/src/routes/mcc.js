@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { requireContractType } from '../middleware/authorization.js';
+import { requireContractType, forbidFieldWorkers } from '../middleware/authorization.js';
 import * as mccController from '../controllers/mccController.js';
 
 const router = express.Router();
@@ -15,14 +15,14 @@ router.get('/api/mcc/depots/:depotId', verifyToken, mccController.getDepot);
 
 router.post('/api/mcc/washing-runs', verifyToken, mccController.createWashingRun);
 router.get('/api/mcc/washing-runs', verifyToken, mccController.listWashingRuns);
-router.post('/api/mcc/washing-runs/:runId/start', verifyToken, mccController.startWashingRun);
-router.post('/api/mcc/washing-runs/:runId/complete', verifyToken, mccController.completeWashingRun);
+router.post('/api/mcc/washing-runs/:runId/start', verifyToken, forbidFieldWorkers, mccController.startWashingRun);
+router.post('/api/mcc/washing-runs/:runId/complete', verifyToken, forbidFieldWorkers, mccController.completeWashingRun);
 router.get('/api/mcc/washing-runs/:runId', verifyToken, mccController.getWashingRun);
 
 router.get('/api/mcc/worker/tasks', verifyToken, mccController.getWorkerTasks);
 router.post('/api/mcc/washing-tasks/submit', verifyToken, mccController.submitTask);
-router.post('/api/mcc/washing-tasks/:taskId/approve', verifyToken, mccController.approveTask);
-router.post('/api/mcc/washing-tasks/:taskId/reject', verifyToken, mccController.rejectTask);
+router.post('/api/mcc/washing-tasks/:taskId/approve', verifyToken, forbidFieldWorkers, mccController.approveTask);
+router.post('/api/mcc/washing-tasks/:taskId/reject', verifyToken, forbidFieldWorkers, mccController.rejectTask);
 
 router.post('/api/mcc/attendance', verifyToken, mccController.markAttendance);
 router.get('/api/mcc/attendance/status', verifyToken, mccController.getAttendanceStatus);

@@ -6,12 +6,12 @@ import { ROLES, PERMISSIONS, ROLE_PERMISSIONS, ROLE_HIERARCHY } from '../src/per
    ========================================================================== */
 
 describe('Role Definitions', () => {
-  it('all 17 roles are defined', () => {
+  it('all 16 roles are defined', () => {
     const expected = [
       'SUPER_ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER',
-      'ADMIN', 'RAILWAY_ADMIN', 'RAILWAY_SUPERVISOR',
-      'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR',
-      'STATION_MASTER', 'AREA_MASTER', 'PLATFORM_MASTER', 'CTS',
+      'ADMIN', 'RAILWAY_ADMIN', 'RAILWAY_INSPECTOR', 'RAILWAY_SUPERVISOR',
+      'CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN', 'CONTRACTOR_SUPERVISOR',
+      'CTS',
       'WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT',
       'PASSENGER'
     ];
@@ -112,22 +112,31 @@ describe('COMPANY_MASTER - Master Data access', () => {
   }
 });
 
-describe('RAILWAY_MASTER - Master Data access', () => {
+// RAILWAY_MASTER is an oversight role: view-only master data (tester guide), plus execution management.
+describe('RAILWAY_MASTER - Master Data access (view-only)', () => {
+  const viewPerms = ['VIEW_PLATFORMS', 'VIEW_AREAS', 'VIEW_FREQUENCIES',
+    'VIEW_SHIFTS', 'VIEW_DEPLOYMENTS', 'VIEW_GEOFENCES',
+    'VIEW_INSPECTIONS', 'VIEW_ACTIVITIES', 'VIEW_MACHINES',
+    'VIEW_MATERIALS', 'VIEW_PEST_CONTROL', 'VIEW_GARBAGE',
+    'VIEW_SCORECARDS', 'VIEW_EXECUTION'];
+  for (const perm of viewPerms) {
+    it(`has ${perm}`, () => {
+      expect(hasPermission('RAILWAY_MASTER', perm)).toBe(true);
+    });
+  }
   const managePerms = ['MANAGE_PLATFORMS', 'MANAGE_AREAS', 'MANAGE_FREQUENCIES',
     'MANAGE_SHIFTS', 'MANAGE_DEPLOYMENTS', 'MANAGE_GEOFENCES',
     'MANAGE_INSPECTIONS', 'MANAGE_ACTIVITIES', 'MANAGE_MACHINES',
     'MANAGE_MATERIALS', 'MANAGE_PEST_CONTROL', 'MANAGE_GARBAGE',
-    'MANAGE_SCORECARDS', 'MANAGE_EXECUTION'];
+    'MANAGE_SCORECARDS'];
   for (const perm of managePerms) {
-    it(`has ${perm}`, () => {
-      expect(hasPermission('RAILWAY_MASTER', perm)).toBe(true);
+    it(`does not have ${perm}`, () => {
+      expect(hasPermission('RAILWAY_MASTER', perm)).toBe(false);
     });
   }
-  for (const perm of managePerms) {
-    it(`has ${perm}`, () => {
-      expect(hasPermission('RAILWAY_MASTER', perm)).toBe(true);
-    });
-  }
+  it('has MANAGE_EXECUTION', () => {
+    expect(hasPermission('RAILWAY_MASTER', 'MANAGE_EXECUTION')).toBe(true);
+  });
 });
 
 describe('ADMIN - Read-only Master Data access', () => {

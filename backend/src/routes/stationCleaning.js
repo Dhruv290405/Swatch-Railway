@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { requirePermission, requireEntityAccess, requireStationAccess, requirePlatformAccess, requireAreaAccess, requireContractType } from '../middleware/authorization.js';
+import { requirePermission, requireEntityAccess, requireStationAccess, requirePlatformAccess, requireAreaAccess, requireContractType, forbidFieldWorkers, requireSelfForFieldWorkers } from '../middleware/authorization.js';
 import { PERMISSIONS } from '../permissions/roles.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { stationCleaningService } from '../services/stationCleaningService.js';
@@ -45,8 +45,8 @@ router.post('/api/station-schedule/generate-tasks', verifyToken, requirePermissi
 router.post('/api/station-runs', verifyToken, requirePermission(PERMISSIONS.MANAGE_RUNS), requireStationAccess, requirePlatformAccess, stationCleaning.createStationRun);
 router.get('/api/station-runs', verifyToken, requirePermission(PERMISSIONS.VIEW_RUNS), requireStationAccess, requirePlatformAccess, stationCleaning.listStationRuns);
 router.get('/api/station-runs/my-runs', verifyToken, requirePermission(PERMISSIONS.VIEW_RUNS), requireStationAccess, requirePlatformAccess, stationCleaning.getMyStationRuns);
-router.get('/api/station-runs/worker/:workerId', verifyToken, requirePermission(PERMISSIONS.VIEW_RUNS), stationCleaning.getWorkerStationRuns);
-router.get('/api/station-runs/supervisor/:supervisorId', verifyToken, requirePermission(PERMISSIONS.VIEW_RUNS), stationCleaning.getSupervisorStationRuns);
+router.get('/api/station-runs/worker/:workerId', verifyToken, requireSelfForFieldWorkers('workerId'), requirePermission(PERMISSIONS.VIEW_RUNS), stationCleaning.getWorkerStationRuns);
+router.get('/api/station-runs/supervisor/:supervisorId', verifyToken, requireSelfForFieldWorkers('supervisorId'), requirePermission(PERMISSIONS.VIEW_RUNS), stationCleaning.getSupervisorStationRuns);
 router.put('/api/station-runs/:runId', verifyToken, requirePermission(PERMISSIONS.MANAGE_RUNS), requireStationAccess, requirePlatformAccess, stationCleaning.updateStationRun);
 router.post('/api/station-runs/:runId/complete-platform', verifyToken, requirePermission(PERMISSIONS.SUBMIT_TASKS), stationCleaning.completePlatform);
 router.delete('/api/station-runs/:runId', verifyToken, requirePermission(PERMISSIONS.MANAGE_RUNS), requireStationAccess, requirePlatformAccess, stationCleaning.deleteStationRun);
@@ -103,10 +103,10 @@ router.post('/api/station-garbage/:uid/reject', verifyToken, requirePermission(P
 router.get('/api/station-garbage/report', verifyToken, requirePermission(PERMISSIONS.VIEW_GARBAGE), requireStationAccess, requirePlatformAccess, stationCleaning.garbageReport);
 
 // ─── Worker Dashboard ─────────────────────────────────────────────────────
-router.get('/api/station-cleaning/dashboard/worker/:workerId', verifyToken, requirePermission(PERMISSIONS.VIEW_DASHBOARD), requireStationAccess, stationCleaning.getWorkerDashboard);
+router.get('/api/station-cleaning/dashboard/worker/:workerId', verifyToken, requireSelfForFieldWorkers('workerId'), requirePermission(PERMISSIONS.VIEW_DASHBOARD), requireStationAccess, stationCleaning.getWorkerDashboard);
 
 // ─── Supervisor Dashboard ──────────────────────────────────────────────────
-router.get('/api/station-cleaning/dashboard/supervisor/:supervisorId', verifyToken, requirePermission(PERMISSIONS.VIEW_DASHBOARD), requireStationAccess, stationCleaning.getSupervisorDashboard);
+router.get('/api/station-cleaning/dashboard/supervisor/:supervisorId', verifyToken, requireSelfForFieldWorkers('supervisorId'), requirePermission(PERMISSIONS.VIEW_DASHBOARD), requireStationAccess, stationCleaning.getSupervisorDashboard);
 
 // ─── Admin Dashboard (contractor admin: supervisors + today's auto-generated tasks) ─
 router.get('/api/station-cleaning/dashboard/admin/:stationId', verifyToken, requirePermission(PERMISSIONS.VIEW_DASHBOARD), requireStationAccess, stationCleaning.getAdminDashboard);
@@ -122,8 +122,8 @@ router.post('/api/station-cleaning/attendance', verifyToken, requirePermission(P
 router.get('/api/station-cleaning/attendance/status', verifyToken, stationCleaningAttendance.getAttendanceStatus);
 router.get('/api/station-cleaning/attendance/list', verifyToken, stationCleaningAttendance.listAttendance);
 router.post('/api/station-cleaning/attendance/report-issue', verifyToken, stationCleaningAttendance.reportAttendanceIssue);
-router.get('/api/station-cleaning/attendance/exceptions', verifyToken, stationCleaningAttendance.getAttendanceExceptions);
-router.post('/api/station-cleaning/attendance/exceptions/action', verifyToken, stationCleaningAttendance.takeAttendanceExceptionAction);
+router.get('/api/station-cleaning/attendance/exceptions', verifyToken, forbidFieldWorkers, stationCleaningAttendance.getAttendanceExceptions);
+router.post('/api/station-cleaning/attendance/exceptions/action', verifyToken, forbidFieldWorkers, stationCleaningAttendance.takeAttendanceExceptionAction);
 
 // ─── Daily Log ──────────────────────────────────────────────────────────────
 router.post('/api/station-cleaning/daily-logs', verifyToken, stationCleaning.submitDailyLog);

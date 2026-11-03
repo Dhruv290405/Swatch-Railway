@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:crm_train/repositories/base_repository.dart';
 import 'package:crm_train/utills/app_colors.dart';
+import 'package:crm_train/view/station_cleaning/garbage/garbage_form_screen.dart';
+import 'package:crm_train/view/station_cleaning/pest_control/pest_control_form_screen.dart';
 
 class StationWorkerDashboard extends StatefulWidget {
   final Map<String, dynamic> run;
@@ -164,20 +166,30 @@ class _StationWorkerDashboardState extends State<StationWorkerDashboard> {
                     )
                   else if (_attendanceStatus == 'Started' && !_isRunCompleted) ...[
                     ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Navigate to garbage log screen
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Garbage logging coming soon')));
-                      },
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => GarbageFormScreen(
+                            stationId: (widget.run['stationId'] ?? '').toString(),
+                            stationName: (widget.run['stationName'] ?? '').toString(),
+                          ),
+                        ),
+                      ),
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Log Garbage Disposal'),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Navigate to pest control screen
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pest Control logging coming soon')));
-                      },
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PestControlFormScreen(
+                            stationId: (widget.run['stationId'] ?? '').toString(),
+                            stationName: (widget.run['stationName'] ?? '').toString(),
+                          ),
+                        ),
+                      ),
                       icon: const Icon(Icons.bug_report),
                       label: const Text('Log Pest Control'),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)),

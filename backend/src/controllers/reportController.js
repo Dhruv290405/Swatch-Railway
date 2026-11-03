@@ -133,7 +133,7 @@ export const getTrainPerformance = asyncHandler(async (req, res) => {
 });
 
 export const getInvoicePdf = asyncHandler(async (req, res) => {
-  const result = await reportService.getInvoicePdf(req.params.uid);
+  const result = await reportService.getInvoicePdf(req.params.uid, req.user);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
   res.send(result.pdfBuffer);
