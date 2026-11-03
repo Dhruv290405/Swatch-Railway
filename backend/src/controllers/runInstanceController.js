@@ -2,6 +2,16 @@ import { db } from '../database/index.js';
 import { runInstanceService } from '../services/runInstanceService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { ForbiddenError } from '../errors/index.js';
+import { runAccessError, filterRunsByEntity } from '../utils/runAccess.js';
+
+// Keep the response envelope untouched; only drop runs owned by a different contractor company.
+const scopeByEntity = (user, result) => {
+  if (result && Array.isArray(result.data)) {
+    const data = filterRunsByEntity(user, result.data);
+    if (data.length !== result.data.length) return { ...result, data, ...(result.count !== undefined && { count: data.length }) };
+  }
+  return result;
+};
 
 export const create = asyncHandler(async (req, res) => {
   const result = await runInstanceService.createRunInstance(req.user, req.body);
@@ -50,14 +60,14 @@ export const list = asyncHandler(async (req, res) => {
   // If still no division, try to use zone as a fallback for zone-level scoped roles
   if (!division && !globalView && req.user?.zone) {
     const result = await runInstanceService.getRunInstancesByZone(req.user.zone, status);
-    return res.status(200).json(result);
+    return res.status(200).json(scopeByEntity(req.user, result));
   }
 
   if (!division && !globalView) {
     return res.status(400).json({ error: 'Division is required' });
   }
   const result = await runInstanceService.getRunInstancesByDivision(division, status, globalView);
-  res.status(200).json(result);
+  res.status(200).json(scopeByEntity(req.user, result));
 });
 
 export const getByParentTrain = asyncHandler(async (req, res) => {
@@ -75,17 +85,8 @@ export const remove = asyncHandler(async (req, res) => {
 
 export const getObhsRun = asyncHandler(async (req, res) => {
   const result = await runInstanceService.getRunInstanceById(req.params.runId);
-  const roleKey = String(req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
-  const uid = req.user?.uid;
-  if (['JANITOR', 'ATTENDANT', 'WORKER', 'RAILWAY_WORKER'].includes(roleKey)) {
-    const assigned = (result.coaches || []).some(
-      (c) => c.workerId === uid || c.janitorId === uid || c.attendantId === uid,
-    );
-    if (!assigned) throw new ForbiddenError('You are not assigned to this run.');
-  } else if (!['SUPER_ADMIN', 'ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER'].includes(roleKey)
-    && req.user?.division && result.division && req.user.division !== result.division) {
-    throw new ForbiddenError('This run belongs to another division.');
-  }
+  const denied = runAccessError(req.user, result);
+  if (denied) throw new ForbiddenError(denied);
   res.status(200).json({ success: true, data: result });
 });
 

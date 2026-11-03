@@ -311,7 +311,10 @@ class ObhsService {
               midAttendance: data.midAttendance || null,
               endAttendance: data.endAttendance || null,
               uid: data.uid,
-              runInstanceId: data.runInstanceId
+              runInstanceId: data.runInstanceId,
+              // IST calendar date of this record (it is today's, by the check above). The app uses it
+              // to accept server state on a fresh install / new device instead of re-asking for "Mark".
+              date: todayIST
             };
           }
         }
@@ -352,7 +355,8 @@ class ObhsService {
         midAttendance: latestData.midAttendance || null,
         endAttendance: latestData.endAttendance || null,
         uid: latestData.uid,
-        runInstanceId: latestData.runInstanceId
+        runInstanceId: latestData.runInstanceId,
+        date: todayIST
       };
     } catch (scanErr) {
       logger.error('OBHS', '(getAttendanceStatus scan) Error:', scanErr.message);

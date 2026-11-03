@@ -786,7 +786,10 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        // Extra bottom inset keeps the Back / Submit buttons clear of the system nav bar.
+        padding: EdgeInsets.fromLTRB(
+          24, 24, 24, 24 + MediaQuery.of(context).viewPadding.bottom,
+        ),
         child: SingleChildScrollView(
           controller: _scrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -1024,8 +1027,11 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Character count: ${commentController.text.length}',
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          'Character count: ${commentController.text.trim().length} (minimum 5 required)',
+          style: TextStyle(
+            fontSize: 11,
+            color: commentController.text.trim().length >= 5 ? Colors.grey[600] : kErrorRed,
+          ),
         ),
       ],
     );
@@ -1171,7 +1177,8 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
 
   bool _canProceed() {
     if (currentStep == 0) return beforePhoto != null;
-    if (currentStep == 1) return commentController.text.isNotEmpty;
+    // Backend requires a delay remark of at least 5 characters for overdue tasks.
+    if (currentStep == 1) return commentController.text.trim().length >= 5;
     if (currentStep == 2) return afterPhoto != null;
     return true;
   }
@@ -1231,11 +1238,21 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
       double? lat;
       double? lng;
       try {
-        final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-        lat = pos.latitude;
-        lng = pos.longitude;
+        // Time-boxed: with no limit, a missing GPS fix (common inside a coach) leaves the
+        // button on "Submitting..." forever and the request is never sent.
+        Position? pos;
+        try {
+          pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 8),
+          );
+        } catch (_) {
+          pos = await Geolocator.getLastKnownPosition();
+        }
+        if (pos != null) {
+          lat = pos.latitude;
+          lng = pos.longitude;
+        }
       } catch (gpsErr) {
         debugPrint('GPS Fetch ignored for task: $gpsErr');
       }

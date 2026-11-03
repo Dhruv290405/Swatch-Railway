@@ -2,6 +2,7 @@ import { db, admin } from '../database/index.js';
 import { ValidationError, NotFoundError, ForbiddenError, ConflictError } from '../errors/index.js';
 import { BaseRepository } from '../repositories/BaseRepository.js';
 import { safeFormat } from '../utils/helpers.js';
+import { assertFormat } from '../utils/validators.js';
 
 class UserService {
   async createUser(creatorData, userData) {
@@ -15,6 +16,8 @@ class UserService {
     if (!email || !password || !role || !userType) {
       throw new ValidationError("Email, Password, Role, and UserType are required.");
     }
+    // Validate here so a malformed email is a 400, not a 500 bubbling up from Firebase Auth.
+    assertFormat('email', normalizedEmail, 'Email');
 
     // Contractor principals can only ever create Contractor users — never
     // Railway ones (mirrors the app's contractor-only user type dropdown and
@@ -176,6 +179,13 @@ class UserService {
       if (domain && !['station_cleaning', 'obhs', 'mcc'].includes(domain)) {
         domain = null;
       }
+    }
+
+    // A contractor-side creator may only add users to their own company. Enforced only when both
+    // the creator's company and the target company are known (legacy accounts pass through).
+    if (['CONTRACTOR_ADMIN', 'CONTRACTOR_MASTER', 'CONTRACTOR_SUPERVISOR', 'CTS'].includes(creatorRoleUpper)
+      && creatorData.entityId && entityId && entityId !== creatorData.entityId) {
+      throw new ForbiddenError('You can only create users for your own company.');
     }
 
     // Railway Inspector is always scoped to the Station Cleaning contract
@@ -910,10 +920,16 @@ class UserService {
     let stats = { pending: 0, approved: 0, rejected: 0 };
     const validRoles = ['worker', 'railway worker', 'janitor', 'attendant', 'contractor worker', 'obhs staff', 'staff'];
 
+    // Contractor callers only see their own company's workforce. Workers without an
+    // entityId (legacy data) are still returned.
+    const scopeToEntity = String(requesterData.userType || '').toLowerCase() === 'contractor' && requesterData.entityId;
+
     snapshot.forEach(doc => {
-      const d = doc.data();
+      // Never send credentials to the client.
+      const { password: _omitPassword, ...d } = doc.data();
       const r = (d.role || '').toLowerCase();
       if (!validRoles.includes(r)) return;
+      if (scopeToEntity && d.entityId && d.entityId !== requesterData.entityId) return;
 
       const s = (d.status || '').toUpperCase();
       if (s === 'PENDING') stats.pending++;

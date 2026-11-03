@@ -22,6 +22,26 @@ export function errorHandler(err, req, res, _next) {
     });
   }
 
+  // Layer 1.2: A bad/expired JWT is an authentication failure (401), not a server error.
+  // The mobile app only re-prompts for login on 401, so a 500 left expired sessions stuck.
+  if (err && ['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(err.name)) {
+    return res.status(401).json({
+      success: false,
+      error: err.name === 'TokenExpiredError' ? 'Session expired. Please log in again.' : 'Invalid token.',
+      code: 'TOKEN_ERROR'
+    });
+  }
+
+  // Layer 1.3: Firestore rejects `where(field, '==', undefined)`. That only happens when a required
+  // query/body parameter was omitted, so it is a client error (400), not a server fault.
+  if (err instanceof Error && /not a valid query constraint/i.test(err.message) && /undefined/.test(err.message)) {
+    return res.status(400).json({
+      success: false,
+      error: 'A required parameter is missing.',
+      code: 'VALIDATION_ERROR'
+    });
+  }
+
   // Layer 1.5: Handle gRPC/Google Cloud errors (e.g., Firestore quota exceeded - code 8)
   const isGRPCError = err && typeof err === 'object' && (err.code !== undefined || err.details !== undefined);
   if (isGRPCError) {

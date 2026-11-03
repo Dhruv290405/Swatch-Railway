@@ -9,11 +9,11 @@ router.all('/api/mcc*', verifyToken, requireContractType('mcc'));
 
 // ─── SPECIFIC ROUTES (MUST come before :param routes) ──────────────────────
 
-router.post('/api/mcc/depots', verifyToken, mccController.createDepot);
+router.post('/api/mcc/depots', verifyToken, forbidFieldWorkers, mccController.createDepot);
 router.get('/api/mcc/depots', verifyToken, mccController.listDepots);
 router.get('/api/mcc/depots/:depotId', verifyToken, mccController.getDepot);
 
-router.post('/api/mcc/washing-runs', verifyToken, mccController.createWashingRun);
+router.post('/api/mcc/washing-runs', verifyToken, forbidFieldWorkers, mccController.createWashingRun);
 router.get('/api/mcc/washing-runs', verifyToken, mccController.listWashingRuns);
 router.post('/api/mcc/washing-runs/:runId/start', verifyToken, forbidFieldWorkers, mccController.startWashingRun);
 router.post('/api/mcc/washing-runs/:runId/complete', verifyToken, forbidFieldWorkers, mccController.completeWashingRun);

@@ -1,5 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
+import { forbidFieldWorkers } from '../middleware/authorization.js';
 import * as v2Controller from '../controllers/v2Controller.js';
 
 const router = express.Router();
@@ -22,7 +23,7 @@ router.get('/obhs/:obhsId', verifyToken, v2Controller.getOBHS);
 router.get('/task-masters', verifyToken, v2Controller.listTaskMasters);
 router.post('/task-masters', verifyToken, v2Controller.createTaskMaster);
 router.put('/task-masters/:taskCode', verifyToken, v2Controller.updateTaskMaster);
-router.post('/assignments/create', verifyToken, v2Controller.createAssignments);
+router.post('/assignments/create', verifyToken, forbidFieldWorkers, v2Controller.createAssignments);
 router.get('/assignments/:runInstanceId', verifyToken, v2Controller.getAssignments);
 router.get('/tasks/:runInstanceId', verifyToken, v2Controller.getTasks);
 router.post('/tasks/submit', verifyToken, v2Controller.submitTask);
@@ -32,7 +33,7 @@ router.post('/tasks/close', verifyToken, v2Controller.closeTask);
 router.post('/tasks/reopen', verifyToken, v2Controller.reopenTask);
 router.post('/tasks/not-applicable', verifyToken, v2Controller.markNotApplicable);
 router.put('/tasks/:taskInstanceId', verifyToken, v2Controller.updateTask);
-router.post('/escalations/create', verifyToken, v2Controller.createEscalation);
+router.post('/escalations/create', verifyToken, forbidFieldWorkers, v2Controller.createEscalation);
 router.post('/escalations/resolve/:escalationId', verifyToken, v2Controller.resolveEscalation);
 router.get('/escalations', verifyToken, v2Controller.listEscalations);
 router.get('/audit-logs', verifyToken, v2Controller.getAuditLogs);

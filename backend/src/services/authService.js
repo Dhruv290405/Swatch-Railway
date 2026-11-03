@@ -159,7 +159,8 @@ class AuthService {
         for (const doc of runInstanceSnapshot.docs) {
           const runData = doc.data();
           if (runData.coaches && Array.isArray(runData.coaches)) {
-            const isWorkerAssigned = runData.coaches.some(coach => coach.workerId === userData.uid);
+            const isWorkerAssigned = runData.coaches.some(coach =>
+              coach.workerId === userData.uid || coach.janitorId === userData.uid || coach.attendantId === userData.uid);
             if (isWorkerAssigned) {
               activeRunInstanceId = runData.runInstanceId || doc.id;
               break;

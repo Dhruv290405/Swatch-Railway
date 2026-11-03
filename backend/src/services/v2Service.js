@@ -262,6 +262,9 @@ class V2Service {
 
     const taskData = doc.data();
     const role = String(user.role || '').toUpperCase().replace(/\s+/g, '_');
+    if (role === 'PASSENGER') {
+      throw new ForbiddenError('Passengers cannot submit work tasks.');
+    }
     if (['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'].includes(role)) {
       const assignedWorkerId = taskData.workerId || taskData.assignedTo;
       if (assignedWorkerId !== user.uid) {
@@ -845,7 +848,8 @@ class V2Service {
     tasks = tasks.map(t => {
       let dueTime = null;
       if (t.scheduledTime && t.scheduledTime.includes(':')) {
-        dueTime = `${dateStr}T${t.scheduledTime}:00.000Z`;
+        // scheduledTime is an IST wall-clock time (the overdue check in submitTask uses IST).
+        dueTime = `${dateStr}T${t.scheduledTime}:00.000+05:30`;
       }
       return { ...t, dueTime };
     });

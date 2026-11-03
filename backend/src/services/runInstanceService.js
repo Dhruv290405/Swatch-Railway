@@ -263,7 +263,9 @@ class RunInstanceService {
       scheduledDeparture: `${departureDate}T${pairData.journeyStartTime || '00:00:00'}.000Z`,
       numberOfCoaches: coachesWithNames.length, coaches: coachesWithNames, status: 'Active',
       attendanceCaptured: false, taskExecutionScore: 0, actualDeparture: new Date().toISOString(), actualArrival: null,
-      createdAt: new Date().toISOString(), createdBy: uid, createdByName: userName
+      createdAt: new Date().toISOString(), createdBy: uid, createdByName: userName,
+      // Owning contractor company (optional, additive) so other companies in the same division can't see this run.
+      ...(creatorData.userType === 'contractor' && creatorData.entityId ? { entityId: creatorData.entityId } : {})
     };
     await runInstanceRef.set(newRunData);
     await db.collection('TrainPairs').doc(instanceId).update({ status: 'Active', lastAssignedDate: departureDate });

@@ -166,7 +166,13 @@ class CoachInfo {
     }
 
     return CoachInfo(
-      coachPosition: json['coachPosition'] ?? 0,
+      // Positions are normally numeric, but a label like "S1" must not crash the whole worker home.
+      coachPosition: json['coachPosition'] is int
+          ? json['coachPosition'] as int
+          : int.tryParse(
+                RegExp(r'\d+').firstMatch('${json['coachPosition'] ?? ''}')?.group(0) ?? '',
+              ) ??
+              0,
       coachType: json['coachType'] ?? '',
       attendanceStatus: json['attendanceStatus'] ?? 'Pending',
       lastUpdatedAt: parseDate(

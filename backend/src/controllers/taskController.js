@@ -1,5 +1,8 @@
 import { taskService } from '../services/taskService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { db } from '../database/index.js';
+import { ForbiddenError, ValidationError } from '../errors/index.js';
+import { runAccessError, isFieldWorker } from '../utils/runAccess.js';
 
 export const list = asyncHandler(async (req, res) => {
   const result = await taskService.getTasksForRun(req.user, req.query.runInstanceId, req.query);
@@ -37,10 +40,26 @@ export const history = asyncHandler(async (req, res) => {
 });
 
 export const pendingReview = asyncHandler(async (req, res) => {
+  const runInstanceId = req.query.runInstanceId;
+  if (!runInstanceId) throw new ValidationError('runInstanceId is required');
+
+  // Only callers who may access this run can read its submitted tasks (photos, GPS, remarks).
+  // Unknown runs keep the old behaviour (empty result) because there is nothing to protect.
+  const runDoc = await db.collection('RunInstance').doc(String(runInstanceId)).get();
+  if (runDoc.exists) {
+    const denied = runAccessError(req.user, runDoc.data());
+    if (denied) throw new ForbiddenError(denied);
+  }
+
   const { v2Service } = await import('../services/v2Service.js');
-  const result = await v2Service.getTasks(req.query.runInstanceId, { status: 'COMPLETED' });
+  const result = await v2Service.getTasks(runInstanceId, { status: 'COMPLETED' });
+  let tasks = result.tasks;
+  // Field workers only ever see tasks assigned to them.
+  if (isFieldWorker(req.user)) {
+    tasks = tasks.filter((t) => (t.workerId || t.assignedTo) === req.user.uid);
+  }
   // Map result.tasks to result.data for backward compatibility for Flutter app
-  res.status(200).json({ success: true, count: result.count, data: result.tasks });
+  res.status(200).json({ success: true, count: tasks.length, data: tasks });
 });
 
 export const approveTask = asyncHandler(async (req, res) => {
