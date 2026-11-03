@@ -217,6 +217,17 @@ class _EntityRegisterFormState extends State<EntityRegisterForm> {
       return;
     }
 
+    final panErr = AppValidators.pan(_panCtrl.text);
+    if (panErr != null) {
+      _showError(panErr);
+      return;
+    }
+    final gstinErr = AppValidators.gstin(_gstinCtrl.text);
+    if (gstinErr != null) {
+      _showError(gstinErr);
+      return;
+    }
+
     if (_addressCtrl.text.trim().isEmpty) {
       _showError("Registered Address is required");
       return;
@@ -981,14 +992,12 @@ class _EntityRegisterFormState extends State<EntityRegisterForm> {
                 return "Required field";
               }
               if (isPan && value != null && value.isNotEmpty) {
-                if (value.length != 10) {
-                  return "Enter valid 10-character PAN number";
-                }
+                final err = AppValidators.pan(value, required: false);
+                if (err != null) return err;
               }
               if (isGst && value != null && value.isNotEmpty) {
-                if (value.length != 15) {
-                  return "Enter valid 15-character GST number";
-                }
+                final err = AppValidators.gstin(value, required: false);
+                if (err != null) return err;
               }
               if (label.contains('Email') &&
                   label.contains('*') &&

@@ -1,6 +1,7 @@
 import { db } from '../database/index.js';
 import { NotFoundError, ConflictError, ValidationError } from '../errors/index.js';
 import { safeFormat } from '../utils/helpers.js';
+import { assertFormat } from '../utils/validators.js';
 
 class EntityService {
   async createEntity(creatorData, body) {
@@ -12,6 +13,13 @@ class EntityService {
       throw new ValidationError('companyName and registrationType are required.');
     }
 
+    // Format checks apply only to values actually provided; PAN/GSTIN are stored upper-cased.
+    const panNormalized = assertFormat('pan', panNumber, 'PAN');
+    const gstinNormalized = assertFormat('gstin', gstinNumber, 'GSTIN');
+    assertFormat('mobile', contactNumber, 'Contact number');
+    assertFormat('mobile', alternateContact, 'Alternate contact');
+    assertFormat('email', email, 'Email');
+
     const existing = await db.collection('entities').where('companyName', '==', companyName).limit(1).get();
     if (!existing.empty) {
       throw new ConflictError('Company with this name already exists.');
@@ -22,8 +30,8 @@ class EntityService {
       uid: docRef.id,
       companyName,
       registrationType,
-      panNumber: panNumber || null,
-      gstinNumber: gstinNumber || null,
+      panNumber: panNormalized || null,
+      gstinNumber: gstinNormalized || null,
       registeredAddress: registeredAddress || null,
       contactNumber: contactNumber || null,
       email: email || null,
@@ -60,6 +68,10 @@ class EntityService {
     if (!doc.exists) throw new NotFoundError('Entity not found.');
 
     const currentData = doc.data();
+    if (updates.panNumber !== undefined) updates.panNumber = assertFormat('pan', updates.panNumber, 'PAN');
+    if (updates.gstinNumber !== undefined) updates.gstinNumber = assertFormat('gstin', updates.gstinNumber, 'GSTIN');
+    if (updates.contactNumber !== undefined) assertFormat('mobile', updates.contactNumber, 'Contact number');
+    if (updates.email !== undefined) assertFormat('email', updates.email, 'Email');
     updates.updatedBy = userId;
     updates.updatedByName = editorName;
     updates.updatedAt = new Date().toISOString();

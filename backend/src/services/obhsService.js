@@ -260,11 +260,14 @@ class ObhsService {
     const { runInstanceId, callerId, role } = filters;
     let query = db.collection('obhs_attendance');
     if (runInstanceId) query = query.where('runInstanceId', '==', runInstanceId);
+    const roleUpper = (role || '').toUpperCase().replace(/\s+/g, '_');
+    const isFieldWorker = ['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'].includes(roleUpper);
+    // Field workers only ever read their own attendance (filtered in the query itself).
+    if (isFieldWorker && callerId) query = query.where('workerId', '==', callerId);
     const snapshot = await query.limit(200).get();
     let records = [];
     snapshot.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
-    const roleUpper = (role || '').toUpperCase();
-    if (roleUpper === 'WORKER' || roleUpper === 'RAILWAY WORKER') records = records.filter(r => r.workerId === callerId);
+    if (isFieldWorker) records = records.filter(r => r.workerId === callerId);
     records.sort((a, b) => ((b.updatedAt || '') > (a.updatedAt || '') ? 1 : -1));
     return { count: records.length, records };
   }
@@ -436,14 +439,31 @@ class ObhsService {
     return { success: true, message: 'Complaint registered successfully', complaintId: complaintsRef.id };
   }
 
-  async getComplaints(filters = {}) {
+  async getComplaints(filters = {}, user = null) {
     const { status, runInstanceId } = filters;
     let query = db.collection('obhs_complaints');
     if (status) query = query.where('status', '==', status);
     if (runInstanceId) query = query.where('runInstanceId', '==', runInstanceId);
     const snapshot = await query.orderBy('createdAt', 'desc').limit(200).get();
-    const complaints = [];
+    let complaints = [];
     snapshot.forEach(doc => complaints.push(doc.data()));
+
+    // Field workers see only complaints they raised or that concern coaches assigned to them.
+    const roleKey = String(user?.role || '').toUpperCase().replace(/\s+/g, '_');
+    if (user?.uid && ['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'].includes(roleKey)) {
+      const myCoaches = new Map(); // runInstanceId -> Set(coach)
+      const runIds = [...new Set(complaints.map(c => c.runInstanceId).filter(Boolean))];
+      await Promise.all(runIds.map(async (rid) => {
+        const rd = await db.collection('RunInstance').doc(rid).get();
+        if (!rd.exists) return;
+        const mine = (rd.data().coaches || []).filter(
+          c => c.workerId === user.uid || c.janitorId === user.uid || c.attendantId === user.uid);
+        myCoaches.set(rid, new Set(mine.flatMap(c => [String(c.coachPosition), String(c.coachNo)])));
+      }));
+      complaints = complaints.filter(c =>
+        c.submittedBy?.uid === user.uid ||
+        myCoaches.get(c.runInstanceId)?.has(String(c.coachNo)));
+    }
     return { count: complaints.length, complaints };
   }
 

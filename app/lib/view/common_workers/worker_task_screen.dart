@@ -763,6 +763,7 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
   XFile? beforePhoto;
   XFile? afterPhoto;
   bool isSubmitting = false;
+  final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _commentFocusNode = FocusNode();
 
@@ -857,6 +858,7 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
                   child: ElevatedButton(
                     onPressed: _canProceed() && !isSubmitting
                         ? () {
+    debugPrint('[TASK_SUBMIT] callback tapped, currentStep=$currentStep');
                             FocusScope.of(context).unfocus();
                             if (currentStep < 3) {
                               setState(() => currentStep++);
@@ -1184,23 +1186,43 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
 
     if (photo == null) return;
 
+    final savedPath = await _savePhotoLocally(photo, isBefore);
+    if (savedPath == null) return;
+
     setState(() {
       if (isBefore) {
-        beforePhoto = photo;
+        beforePhoto = XFile(savedPath);
       } else {
-        afterPhoto = photo;
+        afterPhoto = XFile(savedPath);
       }
     });
   }
 
+  Future<String?> _savePhotoLocally(XFile photo, bool isBefore) async {
+    try {
+      final dir = Directory.systemTemp.createTempSync('swach_task_evidence_');
+      final file = File('${dir.path}/task_${isBefore ? 'before' : 'after'}.jpg');
+      await file.writeAsBytes(await File(photo.path).readAsBytes());
+      return file.path;
+    } catch (e) {
+      debugPrint('[TASK_SUBMIT] failed to save photo locally: $e');
+      return null;
+    }
+  }
+
   Future<void> _submitTask() async {
+    // Captured up-front so feedback still shows after awaits / the sheet closing.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       setState(() => isSubmitting = true);
 
       final controller = Get.find<WorkerController>();
       final runInstanceId = await controller.resolveRunInstanceId();
+      debugPrint('[TASK_SUBMIT] runInstanceId=${runInstanceId?.trim()}');
       if (runInstanceId == null || runInstanceId.trim().isEmpty) {
-        throw Exception('No run instance assigned for task submit.');
+        throw Exception(
+          'No run instance assigned for task submit.',
+        );
       }
       final beforeUrl = await WorkerRepository.uploadMedia(beforePhoto!.path);
       final afterUrl = await WorkerRepository.uploadMedia(afterPhoto!.path);
@@ -1232,22 +1254,24 @@ class _TaskExecutionBottomSheetState extends State<TaskExecutionBottomSheet> {
       );
 
       if (response['success'] == true) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Task submitted successfully!'),
             backgroundColor: kSuccessGreen,
           ),
         );
-        Navigator.pop(context, true);
+        if (mounted) Navigator.pop(context, true);
       } else {
         throw Exception(response['message'] ?? 'Task submit failed.');
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final message = e.toString().replaceAll('Exception: ', '').trim();
+      debugPrint('[TASK_SUBMIT] error: $message');
+      messenger.showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text(
+            message.isNotEmpty ? message : 'Task submit failed. Please try again.',
+          ),
           backgroundColor: kErrorRed,
         ),
       );

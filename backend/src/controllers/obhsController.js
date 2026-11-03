@@ -14,7 +14,7 @@ export const update = asyncHandler(async (req, res) => {
 });
 
 export const list = asyncHandler(async (req, res) => {
-  const result = await obhsService.getComplaints(req.query);
+  const result = await obhsService.getComplaints(req.query, req.user);
   res.status(200).json(result);
 });
 
@@ -203,7 +203,7 @@ export const raiseComplaint = asyncHandler(async (req, res) => {
 });
 
 export const listComplaints = asyncHandler(async (req, res) => {
-  const result = await obhsService.getComplaints(req.query);
+  const result = await obhsService.getComplaints(req.query, req.user);
   res.status(200).json(result);
 });
 
@@ -253,15 +253,23 @@ export const getTaskHeaders = asyncHandler(async (req, res) => {
   res.status(200).json(result);
 });
 
+// Field workers can only list task instances assigned to themselves.
+const scopeTaskQuery = (req, query = {}) => {
+  const role = String(req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
+  return ['WORKER', 'RAILWAY_WORKER', 'JANITOR', 'ATTENDANT'].includes(role) && req.user?.uid
+    ? { ...query, workerId: req.user.uid }
+    : query;
+};
+
 export const getTaskDetails = asyncHandler(async (req, res) => {
   const { v2Service } = await import('../services/v2Service.js');
-  const result = await v2Service.getTasks(req.params.headerId, req.query);
+  const result = await v2Service.getTasks(req.params.headerId, scopeTaskQuery(req, req.query));
   res.status(200).json(result);
 });
 
 export const getCoachTasks = asyncHandler(async (req, res) => {
   const { v2Service } = await import('../services/v2Service.js');
-  const result = await v2Service.getTasks(null, { ...req.query, coachNo: req.query.coachNo });
+  const result = await v2Service.getTasks(null, scopeTaskQuery(req, { ...req.query, coachNo: req.query.coachNo }));
   res.status(200).json(result);
 });
 
@@ -279,11 +287,11 @@ export const updateTaskDetailStatus = asyncHandler(async (req, res) => {
 
 export const getRunTasks = asyncHandler(async (req, res) => {
   const { v2Service } = await import('../services/v2Service.js');
-  const result = await v2Service.getTasks(req.params.runInstanceId, req.query);
+  const result = await v2Service.getTasks(req.params.runInstanceId, scopeTaskQuery(req, req.query));
   res.status(200).json(result);
 });
 
 export const getRunComplaints = asyncHandler(async (req, res) => {
-  const result = await obhsService.getComplaints({ runInstanceId: req.params.runInstanceId });
+  const result = await obhsService.getComplaints({ runInstanceId: req.params.runInstanceId }, req.user);
   res.status(200).json(result);
 });

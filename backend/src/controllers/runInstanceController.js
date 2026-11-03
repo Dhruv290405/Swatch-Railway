@@ -15,25 +15,32 @@ export const update = asyncHandler(async (req, res) => {
 
 export const list = asyncHandler(async (req, res) => {
   const { division: queryDivision, status } = req.query;
-  const userRole = (req.user?.role || '').toLowerCase();
+  const roleKey = (req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
 
-  // Elevated roles that see all data (or can filter by division via query param)
-  const isSuperAdmin =
-    userRole.includes('super admin') ||
-    userRole.includes('company master') ||
-    userRole.includes('admin') ||
-    userRole.includes('railway master') ||
-    userRole.includes('railway_master') ||
-    userRole.includes('railway supervisor') ||
-    userRole.includes('railway_supervisor') ||
-    userRole.includes('contractor master') ||
-    userRole.includes('contractor_master');
+  // Field workers only ever see the runs they are assigned to (filtered server-side).
+  if (['JANITOR', 'ATTENDANT', 'WORKER', 'RAILWAY_WORKER'].includes(roleKey)) {
+    const uid = req.user?.uid;
+    const all = await runInstanceService.getRunInstancesByDivision(null, status, true);
+    const mine = (all.data || []).filter((r) => (r.coaches || []).some(
+      (c) => c.workerId === uid || c.janitorId === uid || c.attendantId === uid,
+    ));
+    return res.status(200).json({ success: true, count: mine.length, data: mine });
+  }
 
-  // Super admins see ALL instances; regular users are scoped to their division
-  let division = isSuperAdmin ? (queryDivision || null) : (queryDivision || req.user?.division);
+  // Platform-wide roles may see everything or filter by any division.
+  const isSuperAdmin = ['SUPER_ADMIN', 'ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER'].includes(roleKey);
+  // Other management roles (railway/contractor admin, supervisor, master) were previously
+  // treated as global; they are now limited to their own division when one is on record
+  // (legacy users without a division keep the old behaviour).
+  const legacyGlobal =
+    !isSuperAdmin && !req.user?.division && !req.user?.zone && !req.user?.stationId &&
+    ['RAILWAY_ADMIN', 'RAILWAY_SUPERVISOR', 'CONTRACTOR_MASTER', 'CONTRACTOR_ADMIN', 'RAILWAY_INSPECTOR'].includes(roleKey);
+  const globalView = isSuperAdmin || legacyGlobal;
+
+  let division = globalView ? (queryDivision || null) : (req.user?.division || queryDivision);
 
   // Derive division from assigned station if user has no direct division
-  if (!division && !isSuperAdmin && req.user?.stationId) {
+  if (!division && !globalView && req.user?.stationId) {
     const stationDoc = await db.collection('stations').doc(req.user.stationId).get();
     if (stationDoc.exists) {
       division = stationDoc.data().division || null;
@@ -41,15 +48,15 @@ export const list = asyncHandler(async (req, res) => {
   }
 
   // If still no division, try to use zone as a fallback for zone-level scoped roles
-  if (!division && !isSuperAdmin && req.user?.zone) {
+  if (!division && !globalView && req.user?.zone) {
     const result = await runInstanceService.getRunInstancesByZone(req.user.zone, status);
     return res.status(200).json(result);
   }
 
-  if (!division && !isSuperAdmin) {
+  if (!division && !globalView) {
     return res.status(400).json({ error: 'Division is required' });
   }
-  const result = await runInstanceService.getRunInstancesByDivision(division, status, isSuperAdmin);
+  const result = await runInstanceService.getRunInstancesByDivision(division, status, globalView);
   res.status(200).json(result);
 });
 
@@ -68,6 +75,17 @@ export const remove = asyncHandler(async (req, res) => {
 
 export const getObhsRun = asyncHandler(async (req, res) => {
   const result = await runInstanceService.getRunInstanceById(req.params.runId);
+  const roleKey = String(req.user?.role || '').toUpperCase().replace(/\s+/g, '_');
+  const uid = req.user?.uid;
+  if (['JANITOR', 'ATTENDANT', 'WORKER', 'RAILWAY_WORKER'].includes(roleKey)) {
+    const assigned = (result.coaches || []).some(
+      (c) => c.workerId === uid || c.janitorId === uid || c.attendantId === uid,
+    );
+    if (!assigned) throw new ForbiddenError('You are not assigned to this run.');
+  } else if (!['SUPER_ADMIN', 'ADMIN', 'COMPANY_MASTER', 'RAILWAY_MASTER'].includes(roleKey)
+    && req.user?.division && result.division && req.user.division !== result.division) {
+    throw new ForbiddenError('This run belongs to another division.');
+  }
   res.status(200).json({ success: true, data: result });
 });
 

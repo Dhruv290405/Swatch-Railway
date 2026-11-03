@@ -1,5 +1,6 @@
 import { db, admin } from '../database/index.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../errors/index.js';
+import { assertFormat } from '../utils/validators.js';
 import { paginate } from '../utils/paginate.js';
 import { fcmService } from './fcmService.js';
 import logger from '../logger/index.js';
@@ -2069,6 +2070,7 @@ class StationCleaningService {
     if (!/^\d{10}$/.test(String(phone).trim())) throw new ValidationError('Invalid mobile number. Must be 10 digits.');
     if (!aadhaarNumber || !/^\d{12}$/.test(String(aadhaarNumber).trim())) throw new ValidationError('Aadhaar number is required and must be 12 digits.');
     if (!employeePhotoUrl || !String(employeePhotoUrl).trim()) throw new ValidationError('Employee identity photo is required');
+    const panFormatted = assertFormat('pan', panNumber, 'PAN');
     const phoneQuery = await db.collection('supervisorWorkers').where('phone', '==', phone).limit(1).get();
     if (!phoneQuery.empty) throw new ValidationError('Mobile Number already registered.');
     const aadhaarQuery = await db.collection('supervisorWorkers').where('aadhaarNumber', '==', aadhaarNumber).limit(1).get();
@@ -2082,7 +2084,7 @@ class StationCleaningService {
       employeePhotoUrl: employeePhotoUrl || '',
       aadhaarNumber: aadhaarNumber || '',
       aadhaarPhotoUrl: aadhaarPhotoUrl || '',
-      panNumber: panNumber || '',
+      panNumber: panFormatted || '',
       panPhotoUrl: panPhotoUrl || '',
       pfUanNumber: pfUanNumber || '',
       pfDocumentUrl: pfDocumentUrl || '',
