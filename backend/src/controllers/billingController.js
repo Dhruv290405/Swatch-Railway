@@ -21,6 +21,16 @@ export const generateReport = asyncHandler(async (req, res) => {
   res.status(201).json(result);
 });
 
+// Generates the monthly bill for every billable contract. With month + year it targets that month;
+// without them it fills in every completed month that has no bill yet.
+export const generateMonthly = asyncHandler(async (req, res) => {
+  const { month, year } = req.body || {};
+  const result = (month && year)
+    ? await billingService.generateMonthlyBills({ month, year, user: req.user })
+    : await billingService.ensureMonthlyBills(req.user, { monthsBack: Number(req.body?.monthsBack) || 12 });
+  res.status(201).json(result);
+});
+
 export const listReports = asyncHandler(async (req, res) => {
   const result = await billingService.getInvoices({ user: req.user, ...req.query });
   res.status(200).json(result);

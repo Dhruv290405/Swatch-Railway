@@ -4,6 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { NotFoundError, ValidationError, ForbiddenError } from '../errors/index.js';
 import { auditService } from './auditService.js';
+import {
+  monthlyBase, computeBillAmounts, parsePct, averageForMonth, weightedOverallScore,
+  completedMonthsToBill, isActiveStatus, isObhsContract,
+} from '../utils/monthlyBill.js';
 
 class BillingService {
   async saveBillingConfig(configData, user) {
@@ -55,9 +59,44 @@ class BillingService {
     return { count: configs.length, configs };
   }
 
-  async createInvoice(creatorData, body) {
+  /**
+   * Real quality score for a contract-month, taken from the locked / auto-approved coach,
+   * premises and CTS forms and weighted with the contract's billing rule. Returns null when
+   * no form was scored in that month.
+   */
+  async _computeFormScore(contractId, month, year, rule) {
+    const FINAL = ['LOCKED', 'AUTO-APPROVED'];
+    const read = async (collection) => {
+      let docs = [];
+      try {
+        const snap = await db.collection(collection)
+          .where('contractId', '==', contractId)
+          .where('status', 'in', FINAL)
+          .limit(500).get();
+        snap.forEach((doc) => docs.push(doc.data()));
+      } catch (_) {
+        // A missing composite index must not block billing: read by contract only and filter here.
+        const snap = await db.collection(collection).where('contractId', '==', contractId).limit(1000).get();
+        snap.forEach((doc) => { const d = doc.data(); if (FINAL.includes(d.status)) docs.push(d); });
+      }
+      return docs.map((d) => ({ formDateTime: d.formDateTime, pct: parsePct(d.ratingDetails?.summary?.overallAveragePct) }));
+    };
+    const [coach, premises, cts] = await Promise.all([read('coachForms'), read('premisesForms'), read('ctsForms')]);
+    return weightedOverallScore({
+      Coach: averageForMonth(coach, month, year),
+      Premise: averageForMonth(premises, month, year),
+      OBHS: averageForMonth(cts, month, year),
+    }, rule);
+  }
+
+  async createInvoice(creatorData, body, options = {}) {
     const { contractId, month, year, overallScore, scoreBreakdown, machineShortageCount, manpowerShortageCount, missedObhsCount, otherPenalties } = body;
     const { uid, fullName } = creatorData;
+
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    if (!contractId) throw new ValidationError('contractId is required.');
+    if (!(m >= 1 && m <= 12) || !(y >= 2000 && y <= 2100)) throw new ValidationError('A valid month (1-12) and year are required.');
 
     const ruleSnapshot = await db.collection('billingRules').where('contractId', '==', contractId).limit(1).get();
     if (ruleSnapshot.empty) throw new ValidationError('No billing config found. Configure billing rules first.');
@@ -65,33 +104,106 @@ class BillingService {
     const rule = ruleSnapshot.docs[0].data();
     rule.uid = ruleSnapshot.docs[0].id;
 
+    // One bill per contract and month. A rejected bill may be generated again.
+    const existingSnap = await db.collection('billingReports')
+      .where('contractId', '==', contractId).where('month', '==', m).where('year', '==', y).limit(20).get();
+    const existing = [];
+    existingSnap.forEach((d) => { const r = d.data(); if (String(r.status || '').toUpperCase() !== 'REJECTED') existing.push(r); });
+    if (existing.length > 0) {
+      return { message: 'A bill already exists for this contract and month', uid: existing[0].uid, existing: true };
+    }
+
     const contractDoc = await db.collection('contracts').doc(contractId).get();
     const contract = contractDoc.exists ? contractDoc.data() : {};
-    const contractValue = contract.contractValue || 0;
-    const deductionRate = rule.deductionRate || 0;
-    const totalDeduction = (contractValue * deductionRate / 100) * ((100 - (overallScore || 100)) / 100);
-    const finalPayable = contractValue - totalDeduction;
+
+    const { base, daysInPeriod, contractDays, prorated } = monthlyBase(contract, m, y);
+    if (prorated && daysInPeriod <= 0) {
+      throw new ValidationError('The contract is not in force during the selected month.');
+    }
+
+    // Prefer the score derived from the month's real scored forms; the client-supplied value is
+    // only used when there is no form data (older app versions always sent a fixed score).
+    const computed = await this._computeFormScore(contractId, m, y, rule);
+    const providedScore = overallScore === undefined || overallScore === null || overallScore === '' ? null : Number(overallScore);
+    const finalScore = computed ? computed.overallScore : (Number.isFinite(providedScore) ? providedScore : 100);
+    const scoreSource = computed ? 'forms' : (Number.isFinite(providedScore) ? 'client' : 'no-data');
+
+    const amounts = computeBillAmounts({
+      rule, base, overallScore: finalScore,
+      counts: { machineShortageCount, manpowerShortageCount, missedObhsCount },
+      otherPenalties,
+    });
 
     const ref = db.collection('billingReports').doc();
     const billData = {
       uid: ref.id, contractId, contractNumber: contract.contractNumber || 'N/A',
       entityId: contract.entityId, entityName: contract.entityName || contract.agencyName || '',
-      zone: contract.zone, division: contract.division, month, year,
-      period: `${month}/${year}`, contractValue, overallScore: overallScore || 100,
-      grade: overallScore >= 90 ? 'A' : overallScore >= 80 ? 'B' : overallScore >= 70 ? 'C' : 'D',
-      totalDeduction, finalPayable,
-      deductions: [{ type: 'Performance', description: 'Score based deduction', count: 1, rate: totalDeduction, amount: totalDeduction }],
+      zone: contract.zone, division: contract.division, month: m, year: y,
+      period: `${m}/${y}`,
+      // `contractValue` is what this bill is computed from (the month's share), so the figures add up.
+      contractValue: base,
+      totalContractValue: Number(contract.contractValue) || 0,
+      monthlyBase: base, daysInPeriod, contractDays,
+      overallScore: amounts.overallScore, grade: amounts.grade,
+      performanceDeductionPct: amounts.performanceDeductionPct,
+      totalDeduction: amounts.totalDeduction, finalPayable: amounts.finalPayable,
+      deductions: amounts.deductions,
+      scoreSource,
       status: 'PENDING', createdBy: uid, createdAt: new Date().toISOString()
     };
-    if (scoreBreakdown) billData.scoreBreakdown = scoreBreakdown;
+    if (options.auto) billData.autoGenerated = true;
+    const breakdown = computed ? computed.breakdown : scoreBreakdown;
+    if (breakdown) billData.scoreBreakdown = breakdown;
     if (machineShortageCount) billData.machineShortageCount = machineShortageCount;
     if (manpowerShortageCount) billData.manpowerShortageCount = manpowerShortageCount;
     if (missedObhsCount) billData.missedObhsCount = missedObhsCount;
     if (otherPenalties) billData.otherPenalties = otherPenalties;
     await ref.set(billData);
-    await auditService.logAudit('BILL_CREATED', uid, fullName || 'User', ref.id, 'billingReports', `Billing report generated for contract ${contract.contractNumber || 'N/A'} period ${month}/${year} by ${fullName || 'User'}`, billData);
+    await auditService.logAudit('BILL_CREATED', uid, fullName || 'User', ref.id, 'billingReports', `Billing report generated for contract ${contract.contractNumber || 'N/A'} period ${m}/${y} by ${fullName || 'User'}`, billData);
 
     return { message: 'Bill generated', uid: ref.id };
+  }
+
+  /** Active OBHS contracts that have billing rules configured. */
+  async _billableContracts() {
+    const snap = await db.collection('contracts').limit(500).get();
+    const contracts = [];
+    snap.forEach((doc) => {
+      const c = doc.data();
+      if (isActiveStatus(c.status) && isObhsContract(c)) contracts.push({ ...c, uid: c.uid || doc.id });
+    });
+    return contracts;
+  }
+
+  /** Generates the bill for one month for every billable contract. Safe to run repeatedly. */
+  async generateMonthlyBills({ month, year, user }) {
+    const sys = user || { uid: 'system', fullName: 'System', role: 'SUPER_ADMIN' };
+    const created = [];
+    const skipped = [];
+    for (const contract of await this._billableContracts()) {
+      try {
+        const res = await this.createInvoice(sys, { contractId: contract.uid, month, year }, { auto: true });
+        (res.existing ? skipped : created).push({ contractId: contract.uid, uid: res.uid, reason: res.existing ? 'exists' : undefined });
+      } catch (e) {
+        skipped.push({ contractId: contract.uid, reason: e.message });
+      }
+    }
+    return { month: Number(month), year: Number(year), generated: created.length, skipped: skipped.length, bills: created, details: skipped };
+  }
+
+  /** Fills in every completed month that has no bill yet (covers months missed while the server was down). */
+  async ensureMonthlyBills(user, { monthsBack = 12 } = {}) {
+    const sys = user || { uid: 'system', fullName: 'System', role: 'SUPER_ADMIN' };
+    let generated = 0;
+    for (const contract of await this._billableContracts()) {
+      for (const { month, year } of completedMonthsToBill(contract, new Date(), monthsBack)) {
+        try {
+          const res = await this.createInvoice(sys, { contractId: contract.uid, month, year }, { auto: true });
+          if (!res.existing) generated++;
+        } catch (_) { /* no billing rule yet, or contract not in force: nothing to bill */ }
+      }
+    }
+    return { generated };
   }
 
   async getInvoices(filters) {
@@ -112,10 +224,13 @@ class BillingService {
     if (zone) query = query.where('zone', '==', zone);
     if (month) query = query.where('month', '==', parseInt(month));
     if (year) query = query.where('year', '==', parseInt(year));
-    const snapshot = await query.orderBy('createdAt', 'desc').limit(200).get();
+    // Sorted in memory: combining equality filters with orderBy needs a composite index per filter
+    // combination, which silently breaks the list when one is missing.
+    const snapshot = await query.limit(500).get();
     const reports = [];
     snapshot.forEach(doc => reports.push(doc.data()));
-    return { count: reports.length, reports };
+    reports.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return { count: Math.min(reports.length, 200), reports: reports.slice(0, 200) };
   }
 
   async getInvoiceById(uid) {

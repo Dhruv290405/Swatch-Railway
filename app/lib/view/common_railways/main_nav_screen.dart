@@ -13,7 +13,7 @@ class MainNavScreen extends StatelessWidget {
         userLevel: user.zone ?? user.division ?? user.depot ?? 'All Zones',
         userRole: user.userType,
         userDisplayRole: user.role,
-        contractType: user.contractType,
+        contractType: user.effectiveContractType,
       ),
     );
   }

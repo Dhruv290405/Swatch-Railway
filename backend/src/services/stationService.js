@@ -120,6 +120,17 @@ class StationService {
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
     await ref.set(data);
+
+    // A contractor-side creator (e.g. Contractor Master) only sees stations mapped to their company, so
+    // register the mapping or the station they just created would not appear in their own list.
+    if (String(userData.userType || '').toLowerCase() === 'contractor' && userData.entityId) {
+      const mapRef = db.collection('stationContractorMappings').doc();
+      await mapRef.set({
+        uid: mapRef.id, stationId: ref.id, contractorId: userData.entityId, contractId: null,
+        status: 'active', source: 'created-by-master', createdBy: userData.uid,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+    }
     return { message: 'Station created', uid: ref.id, station: data };
   }
 

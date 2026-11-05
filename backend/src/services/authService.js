@@ -6,6 +6,7 @@ import config from '../config/index.js';
 import logger from '../logger/index.js';
 import { notificationService } from '../notifications/index.js';
 import otpStore from '../utils/otpStore.js';
+import { backfillContractType } from '../utils/contractTypeResolver.js';
 
 class AuthService {
   async sendOtp(phone) {
@@ -53,6 +54,7 @@ class AuthService {
       config.jwtSecret,
       { expiresIn: '7d' }
     );
+    await backfillContractType(userData);
     delete userData.password;
     logger.info('Auth', `(Login) Success via 2Factor OTP for ${phone}`);
     return { success: true, message: "Login Successful", token, user: userData };
@@ -107,6 +109,7 @@ class AuthService {
       config.jwtSecret,
       { expiresIn: '7d' }
     );
+    await backfillContractType(userData);
     delete userData.password;
     logger.info('Auth', `(Login) Success via Resend OTP for ${email}`);
     return { message: "Login Successful", token, user: userData };
@@ -178,6 +181,7 @@ class AuthService {
       { expiresIn: '7d' }
     );
     logger.info('Auth', `(Login) Successful login for ${normalizedEmail}, ActiveRunInstance: ${activeRunInstanceId}`);
+    await backfillContractType(userData);
     delete userData.password;
     return { message: "Login Successful", token: customAppToken, user: userData };
   }
@@ -218,6 +222,7 @@ class AuthService {
       { expiresIn: '7d' }
     );
     logger.info('Auth', `(Login) Successful login for mobile ${mobile}`);
+    await backfillContractType(userData);
     delete userData.password;
     return { message: "Login Successful", token: customAppToken, user: userData };
   }
@@ -350,6 +355,7 @@ class AuthService {
     await ref.update(data);
     const updated = await ref.get();
     const userData = updated.data();
+    await backfillContractType(userData);
     delete userData.password;
     return { message: 'Profile updated successfully', user: userData };
   }

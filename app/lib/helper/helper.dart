@@ -13,8 +13,9 @@ void navigateUser(BuildContext context, UserModel user) {
 
   const railwayWorkerRoles = {'RAILWAY_WORKER', 'RAILWAYSTAFF', 'JANITOR', 'ATTENDANT'};
   final stationWorkerType = (user.workerType ?? '').toUpperCase();
+  final contractType = user.effectiveContractType;
   final isStationCleaningWorker =
-      user.contractType == 'station_cleaning' &&
+      contractType == 'station_cleaning' &&
       (role == 'JANITOR' ||
           role == 'ATTENDANT' ||
           (role == 'WORKER' &&
@@ -26,7 +27,7 @@ void navigateUser(BuildContext context, UserModel user) {
       context,
       MaterialPageRoute(builder: (_) => WorkerMobileNavBar(user: user)),
     );
-  } else if (user.contractType == 'mcc') {
+  } else if (contractType == 'mcc') {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => MccRouter(user: user)),

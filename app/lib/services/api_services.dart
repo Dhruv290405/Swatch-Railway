@@ -3388,16 +3388,18 @@ class ApiService {
     }
   }
 
+  /// Generates the bill for one contract and month. The server works out the score from the month's
+  /// scored forms, so [overallScore] / [scoreBreakdown] are only fallbacks and are omitted when null.
   static Future<Map<String, dynamic>> generateBill({
     required String contractId,
     required int month,
     required int year,
-    required double overallScore,
-    required Map<String, dynamic>? scoreBreakdown,
-    required int machineShortageCount,
-    required int manpowerShortageCount,
-    required int missedObhsCount,
-    required double otherPenalties,
+    double? overallScore,
+    Map<String, dynamic>? scoreBreakdown,
+    int machineShortageCount = 0,
+    int manpowerShortageCount = 0,
+    int missedObhsCount = 0,
+    double otherPenalties = 0,
   }) async {
     try {
       final token = await getToken();
@@ -3411,8 +3413,8 @@ class ApiService {
           'contractId': contractId,
           'month': month,
           'year': year,
-          'overallScore': overallScore,
-          'scoreBreakdown': scoreBreakdown,
+          if (overallScore != null) 'overallScore': overallScore,
+          if (scoreBreakdown != null) 'scoreBreakdown': scoreBreakdown,
           'machineShortageCount': machineShortageCount,
           'manpowerShortageCount': manpowerShortageCount,
           'missedObhsCount': missedObhsCount,
@@ -3428,6 +3430,24 @@ class ApiService {
     } catch (e) {
       throw Exception('Error generating bill: $e');
     }
+  }
+
+  /// Creates every missing monthly bill (all completed months, all contracts). Safe to run repeatedly.
+  static Future<Map<String, dynamic>> generateMissingMonthlyBills() async {
+    final token = await getToken();
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/billing/generate-monthly'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({}),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    }
+    String message = 'Failed to generate monthly bills';
+    try {
+      message = jsonDecode(response.body)['error'] ?? message;
+    } catch (_) {}
+    throw Exception(message);
   }
 
   static Future<List<BillingReport>> getBillingReports({

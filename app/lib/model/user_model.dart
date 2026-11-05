@@ -55,6 +55,24 @@ class UserModel {
     this.approvedAt,
   });
 
+  /// The module this user works in. Older accounts have no stored `contractType`, and an empty value made the
+  /// app show OBHS content (forms overview, OBHS menus) to station-cleaning supervisors. Mirrors the backend
+  /// resolver: stored value, domain, then station / train assignment, and a Contractor Supervisor with
+  /// neither defaults to station cleaning.
+  String? get effectiveContractType {
+    final stored = contractType?.trim();
+    if (stored != null && stored.isNotEmpty) return stored;
+    final d = domain?.trim();
+    if (d == 'station_cleaning' || d == 'obhs' || d == 'mcc') return d;
+    if (userType.toLowerCase() != 'contractor') return null;
+    final hasStation = (stationId ?? '').isNotEmpty || stations.isNotEmpty;
+    final hasTrain = (trainId ?? '').isNotEmpty || (trainIds?.isNotEmpty ?? false);
+    if (hasStation) return 'station_cleaning';
+    if (hasTrain) return 'obhs';
+    if (role.toUpperCase().replaceAll(' ', '_') == 'CONTRACTOR_SUPERVISOR') return 'station_cleaning';
+    return null;
+  }
+
   static String _normalizeRole(String? rawRole) {
     if (rawRole == null) return '';
     final roleUpper = rawRole.toUpperCase().replaceAll(' ', '_');

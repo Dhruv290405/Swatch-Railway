@@ -925,7 +925,7 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
     const accentGreen = Color(0xFF12C27D);
     const softBorder = Color(0xFFE8E8F0);
 
-    final sidebarMenuItems = _getSidebarMenuItems(user?.role, user?.contractType ?? user?.domain);
+    final sidebarMenuItems = _getSidebarMenuItems(user?.role, user?.effectiveContractType ?? widget.contractType);
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1007,7 +1007,7 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
                             Text( entityDetails?['companyName'] ?? 'N/A',
                                 style: TextStyle(fontSize: 13, color: Colors.black54)),
                             SizedBox(height: 2),
-                            Text('${_formatContractType(user?.contractType ?? '')} | ${user?.division ?? "N/A"}',
+                            Text('${_formatContractType(user?.effectiveContractType ?? '')} | ${user?.division ?? "N/A"}',
                                 style: TextStyle(fontSize: 12, color: Colors.black45)),
                           ],
                         ),

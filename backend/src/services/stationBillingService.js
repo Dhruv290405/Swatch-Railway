@@ -12,6 +12,7 @@ import logger from '../logger/index.js';
 import { auditService } from './auditService.js';
 import { executionSheetService } from './executionSheetService.js';
 import { contractEstimationService } from './contractEstimationService.js';
+import { isActiveStatus } from '../utils/monthlyBill.js';
 
 class StationBillingService {
   async generateBillingSupportPack(user, data) {
@@ -464,29 +465,35 @@ class StationBillingService {
   async generateMonthlyBillingPacks(month, year, user) {
     if (!month || !year) throw new ValidationError('month and year are required');
     const userObj = user || { uid: 'system', fullName: 'System', role: 'SUPER_ADMIN' };
-    const contractsSnap = await db.collection('contracts').where('status', '==', 'ACTIVE').limit(200).get();
-    if (contractsSnap.empty) return { generated: 0, message: 'No active contracts found' };
+    // Contract status is stored as 'Active' by the app (older rows may be 'ACTIVE'), so filter in code.
+    const contractsSnap = await db.collection('contracts').limit(500).get();
+    const contractDocs = contractsSnap.docs.filter((d) => {
+      const c = d.data();
+      return isActiveStatus(c.status) && String(c.contractType || '').toLowerCase() === 'station_cleaning';
+    });
+    if (contractDocs.length === 0) return { generated: 0, message: 'No active station cleaning contracts found' };
 
     const generated = [];
     const errors = [];
-    const processedStations = new Set();
 
-    for (const contractDoc of contractsSnap.docs) {
+    for (const contractDoc of contractDocs) {
       const contract = contractDoc.data();
       const contractId = contractDoc.id;
-      let stationsSnap;
-      if (contract.stationId) {
-        const stationDoc = await db.collection('stations').doc(contract.stationId).get();
-        if (stationDoc.exists && stationDoc.data().active !== false) {
-          stationsSnap = [stationDoc];
-        } else continue;
+      // Contracts store their stations in `stationIds`; `stationId` is accepted for older records.
+      const contractStationIds = Array.isArray(contract.stationIds) && contract.stationIds.length
+        ? contract.stationIds
+        : (contract.stationId ? [contract.stationId] : []);
+      let stationList = [];
+      if (contractStationIds.length) {
+        for (const sid of contractStationIds) {
+          const stationDoc = await db.collection('stations').doc(sid).get();
+          if (stationDoc.exists && stationDoc.data().active !== false) stationList.push(stationDoc);
+        }
       } else {
-        stationsSnap = await db.collection('stations').where('active', '==', true).limit(200).get();
+        const all = await db.collection('stations').where('active', '==', true).limit(200).get();
+        stationList = all.docs;
       }
-      const stationList = stationsSnap.docs ? stationsSnap.docs : [stationsSnap];
       for (const stationDoc of stationList) {
-        if (stationDoc.id && processedStations.has(stationDoc.id)) continue;
-        if (stationDoc.id) processedStations.add(stationDoc.id);
         const stationId = stationDoc.id;
         try {
           const existSnap = await db.collection('station_billing_packs')
@@ -505,6 +512,20 @@ class StationBillingService {
       }
     }
     return { generated: generated.length, packs: generated, errors };
+  }
+
+  /** Generates packs for every completed month that has none yet (covers months missed while the server was down). */
+  async ensureMonthlyBillingPacks(user, { monthsBack = 6 } = {}) {
+    const now = new Date();
+    let generated = 0;
+    for (let i = monthsBack; i >= 1; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      try {
+        const res = await this.generateMonthlyBillingPacks(d.getUTCMonth() + 1, d.getUTCFullYear(), user);
+        generated += res.generated || 0;
+      } catch (_) { /* nothing to bill for this month */ }
+    }
+    return { generated };
   }
 }
 

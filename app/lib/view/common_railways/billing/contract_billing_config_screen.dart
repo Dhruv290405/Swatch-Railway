@@ -15,6 +15,12 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
   List<ContractBillingRule> configs = [];
   List<ContractModel> contracts = [];
   bool isLoading = true;
+  String? loadError;
+
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
 
   @override
   void initState() {
@@ -23,7 +29,7 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
   }
 
   Future<void> _loadData() async {
-    setState(() { isLoading = true; });
+    setState(() { isLoading = true; loadError = null; });
     try {
       final results = await Future.wait([
         ApiService.getAllBillingConfigs(),
@@ -32,13 +38,27 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
       if (mounted) {
         setState(() {
           configs = results[0] as List<ContractBillingRule>;
-          contracts = results[1] as List<ContractModel>;
+          // These rules (coach / premise / OBHS weightages) apply to OBHS contracts only. Contracts with no
+          // type are older OBHS contracts, so they stay in the list.
+          contracts = (results[1] as List<ContractModel>)
+              .where((c) => c.contractType != 'station_cleaning' && c.contractType != 'mcc')
+              .toList();
           isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() { isLoading = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          loadError = e.toString().replaceAll('Exception: ', '');
+        });
+      }
     }
+  }
+
+  void _snack(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   ContractBillingRule? _findConfig(String contractId) {
@@ -57,12 +77,28 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
         backgroundColor: kRailwayBlue,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(icon: const Icon(Icons.auto_mode), onPressed: _generateMissing, tooltip: 'Generate all missing monthly bills'),
           IconButton(icon: const Icon(Icons.add), onPressed: () => _showConfigDialog(), tooltip: 'Add New Configuration'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData, tooltip: 'Refresh'),
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : loadError != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+                  const SizedBox(height: 12),
+                  Text('Could not load billing configurations', style: TextStyle(fontSize: 16, color: Colors.grey.shade700)),
+                  const SizedBox(height: 6),
+                  Text(loadError!, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(onPressed: _loadData, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                ]),
+              ),
+            )
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -161,21 +197,76 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
 
   Future<void> _generateBill(ContractBillingRule config) async {
     final now = DateTime.now();
+    final lastMonth = DateTime(now.year, now.month - 1, 1);
+    int month = lastMonth.month;
+    int year = lastMonth.year;
+    final years = [for (var y = now.year; y >= now.year - 3; y--) y];
+
+    final picked = await showDialog<List<int>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Generate Monthly Bill'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(config.contractNumber, style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: month,
+                decoration: const InputDecoration(labelText: 'Month', border: OutlineInputBorder(), isDense: true),
+                items: [for (var i = 1; i <= 12; i++) DropdownMenuItem(value: i, child: Text(_monthNames[i - 1]))],
+                onChanged: (v) => setDialogState(() => month = v ?? month),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: year,
+                decoration: const InputDecoration(labelText: 'Year', border: OutlineInputBorder(), isDense: true),
+                items: [for (final y in years) DropdownMenuItem(value: y, child: Text('$y'))],
+                onChanged: (v) => setDialogState(() => year = v ?? year),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "The score and deductions are calculated from that month's approved forms and this contract's billing rules.",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, [month, year]), child: const Text('Generate')),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+
+    final isFuture = DateTime(picked[1], picked[0], 1).isAfter(DateTime(now.year, now.month, 1));
+    if (isFuture) {
+      _snack('Choose a month that has already started.', Colors.orange);
+      return;
+    }
     try {
-      await ApiService.generateBill(
-        contractId: config.contractId,
-        month: now.month,
-        year: now.year,
-        overallScore: 85,
-        scoreBreakdown: {'Coach': 88, 'Premise': 82, 'OBHS': 80, 'Feedback': 90, 'AI': 92},
-        machineShortageCount: 0,
-        manpowerShortageCount: 0,
-        missedObhsCount: 0,
-        otherPenalties: 0,
-      );
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bill generated'), backgroundColor: Colors.green));
+      final res = await ApiService.generateBill(contractId: config.contractId, month: picked[0], year: picked[1]);
+      final label = '${_monthNames[picked[0] - 1]} ${picked[1]}';
+      if (res['existing'] == true) {
+        _snack('A bill for $label already exists.', Colors.orange);
+      } else {
+        _snack('Bill generated for $label.', Colors.green);
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      _snack('Error: ${e.toString().replaceAll('Exception: ', '')}', Colors.red);
+    }
+  }
+
+  Future<void> _generateMissing() async {
+    try {
+      final res = await ApiService.generateMissingMonthlyBills();
+      final n = (res['generated'] ?? 0) as num;
+      _snack(n == 0 ? 'All monthly bills are already up to date.' : '${n.toInt()} monthly bill(s) generated.', Colors.green);
+    } catch (e) {
+      _snack('Error: ${e.toString().replaceAll('Exception: ', '')}', Colors.red);
     }
   }
 
@@ -229,7 +320,8 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
                         entityNameCtrl.text = c.entityName ?? c.contractName ?? '';
                         divCtrl.text = c.division ?? '';
                         zoneCtrl.text = c.zone ?? '';
-                        valCtrl.text = '';
+                        // Pre-fill from the contract; it used to be cleared, so the value saved as 0 unless retyped.
+                        valCtrl.text = c.contractValue > 0 ? c.contractValue.toStringAsFixed(0) : '';
                       });
                     },
                   ),
@@ -274,7 +366,29 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                if (selectedContractId == null && existing == null) return;
+                if (selectedContractId == null && existing == null) {
+                  _snack('Select a contract first.', Colors.orange);
+                  return;
+                }
+                final contractValue = double.tryParse(valCtrl.text.trim()) ?? 0;
+                if (contractValue <= 0) {
+                  _snack('Enter the contract value (it must be greater than 0).', Colors.orange);
+                  return;
+                }
+                final weightTotal = (double.tryParse(coachWtCtrl.text) ?? 35) +
+                    (double.tryParse(premiseWtCtrl.text) ?? 35) +
+                    (double.tryParse(obhsWtCtrl.text) ?? 15) +
+                    (double.tryParse(fbWtCtrl.text) ?? 10) +
+                    (double.tryParse(aiWtCtrl.text) ?? 5);
+                if ((weightTotal - 100).abs() > 0.01) {
+                  _snack('Score weightages must total 100% (currently ${weightTotal.toStringAsFixed(0)}%).', Colors.orange);
+                  return;
+                }
+                final bands = [p90Ctrl, p89Ctrl, p79Ctrl, p70Ctrl].map((c) => double.tryParse(c.text));
+                if (bands.any((v) => v != null && (v < 0 || v > 100))) {
+                  _snack('Deduction percentages must be between 0 and 100.', Colors.orange);
+                  return;
+                }
                 Navigator.pop(ctx);
                 try {
                   await ApiService.saveBillingConfig(
@@ -284,7 +398,7 @@ class _ContractBillingConfigScreenState extends State<ContractBillingConfigScree
                     entityName: entityNameCtrl.text,
                     division: divCtrl.text,
                     zone: zoneCtrl.text,
-                    contractValue: double.tryParse(valCtrl.text) ?? 0,
+                    contractValue: contractValue,
                     billingCycle: 'Monthly',
                     serviceTypes: [],
                     coachWeightage: double.tryParse(coachWtCtrl.text) ?? 35,

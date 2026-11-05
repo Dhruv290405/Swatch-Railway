@@ -80,6 +80,8 @@ router.get('/api/station-pest-control/records', verifyToken, requirePermission(P
   res.json({ data: records || [] });
 }));
 router.post('/api/station-pest-control/:uid/review', verifyToken, requirePermission(PERMISSIONS.MANAGE_PEST_CONTROL), requireStationAccess, requirePlatformAccess, stationCleaning.reviewPestControl);
+// The app sends PUT for this action; accept it as well so the Review button works.
+router.put('/api/station-pest-control/:uid/review', verifyToken, requirePermission(PERMISSIONS.MANAGE_PEST_CONTROL), requireStationAccess, requirePlatformAccess, stationCleaning.reviewPestControl);
 router.get('/api/station-pest-control/report', verifyToken, requirePermission(PERMISSIONS.VIEW_PEST_CONTROL), requireStationAccess, requirePlatformAccess, stationCleaning.pestControlReport);
 
 // ─── Machine / Material Deployment ──────────────────────────────────────────

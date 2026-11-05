@@ -7,6 +7,7 @@ import logger from './logger/index.js';
 import { taskManagementService } from './services/taskManagementService.js';
 import { stationCleaningService } from './services/stationCleaningService.js';
 import { stationBillingService } from './services/stationBillingService.js';
+import { billingService } from './services/billingService.js';
 import { autoEmailService } from './services/autoEmailService.js';
 
 const CRON_TZ = 'Asia/Kolkata';
@@ -339,6 +340,13 @@ schedule('0 7 1 * *', async () => {
   }
 
   try {
+    const obhs = await billingService.generateMonthlyBills({ month, year, user: sysUser });
+    logger.info('Cron', ` [MonthlyBilling-OBHS] Generated ${obhs.generated} OBHS bill(s) for ${month}/${year} (${obhs.skipped} skipped)`);
+  } catch (e) {
+    logger.error('Cron', ` [MonthlyBilling-OBHS] FAILED: ${e.message}`);
+  }
+
+  try {
     const stationsSnap = await db.collection('stations').where('active', '==', true).limit(200).get();
     let dispatched = 0;
     for (const doc of stationsSnap.docs) {
@@ -355,6 +363,24 @@ schedule('0 7 1 * *', async () => {
   }
   logger.info('Cron', '--- Finished Monthly Billing Report Cron ---');
 }, { timezone: CRON_TZ });
+
+// ─── Monthly bills catch-up ───
+// The 1st-of-month job above only fires if the server is awake at 07:00. This pass runs daily (and shortly
+// after boot) and creates the bill for any completed month that still has none, so every month ends up billed.
+async function runMonthlyBillingCatchUp(label) {
+  const sysUser = { uid: 'system', fullName: 'System', role: 'SUPER_ADMIN' };
+  try {
+    const obhs = await billingService.ensureMonthlyBills(sysUser);
+    const station = await stationBillingService.ensureMonthlyBillingPacks(sysUser);
+    logger.info('Cron', ` [MonthlyBilling-CatchUp:${label}] OBHS bills created: ${obhs.generated}, station packs created: ${station.generated}`);
+  } catch (e) {
+    logger.error('Cron', ` [MonthlyBilling-CatchUp:${label}] FAILED: ${e.message}`);
+  }
+}
+schedule('30 6 * * *', () => runMonthlyBillingCatchUp('daily'), { timezone: CRON_TZ });
+if (process.env.DISABLE_CRON !== 'true' && process.env.NODE_ENV !== 'test') {
+  setTimeout(() => runMonthlyBillingCatchUp('boot'), 90 * 1000).unref?.();
+}
 
 // ─── Daily 2 AM: Evidence archive ───
 schedule('0 2 * * *', async () => {

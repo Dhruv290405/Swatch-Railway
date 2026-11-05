@@ -260,6 +260,14 @@ class ContractService {
       contracts = contracts.filter(c => (c.stationIds || []).includes(stationId));
     }
 
+    // Division-level railway roles only see their own division's contracts. Platform / zone roles keep the
+    // full view, and a contract (or user) with no division on record is never hidden.
+    const roleKey = (role || '').toUpperCase().replace(/\s+/g, '_');
+    if (userType === 'railway' && userDivision && ['RAILWAY_ADMIN', 'RAILWAY_SUPERVISOR', 'RAILWAY_INSPECTOR'].includes(roleKey)) {
+      const mine = String(userDivision).trim().toLowerCase();
+      contracts = contracts.filter(c => !c.division || String(c.division).trim().toLowerCase() === mine);
+    }
+
     return { count: contracts.length, contracts };
   }
 

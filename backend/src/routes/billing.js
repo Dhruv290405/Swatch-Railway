@@ -1,6 +1,7 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
-import { forbidFieldWorkers } from '../middleware/authorization.js';
+import { forbidFieldWorkers, requirePermission } from '../middleware/authorization.js';
+import { PERMISSIONS } from '../permissions/roles.js';
 import * as billingController from '../controllers/billingController.js';
 
 const router = express.Router();
@@ -9,6 +10,7 @@ router.post('/config', verifyToken, forbidFieldWorkers, billingController.create
 router.get('/config', verifyToken, billingController.listConfig);
 router.get('/config/:contractId', verifyToken, billingController.getConfigByContract);
 router.post('/generate', verifyToken, forbidFieldWorkers, billingController.generateReport);
+router.post('/generate-monthly', verifyToken, forbidFieldWorkers, requirePermission(PERMISSIONS.GENERATE_BILLING), billingController.generateMonthly);
 router.get('/reports', verifyToken, billingController.listReports);
 router.get('/reports/:uid', verifyToken, billingController.getReportById);
 router.post('/approve/:uid', verifyToken, forbidFieldWorkers, billingController.approveReport);
