@@ -34,7 +34,10 @@ export async function resolveContractType(user, database = db) {
 export async function backfillContractType(user, database = db) {
   try {
     const resolved = await resolveContractType(user, database);
-    if (resolved && !user.contractType) user.contractType = resolved;
+    const isSupervisor = String(user.role || '').toUpperCase().replace(/\s+/g, '_') === 'CONTRACTOR_SUPERVISOR';
+    // Contractor Supervisors always work in Station Cleaning (OBHS belongs to Janitor/Attendant).
+    if (isSupervisor && String(user.userType || '').toLowerCase() === 'contractor') user.contractType = 'station_cleaning';
+    else if (resolved && !user.contractType) user.contractType = resolved;
   } catch (_) { /* never block a login on this */ }
   return user;
 }

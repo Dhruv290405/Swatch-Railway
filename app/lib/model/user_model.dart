@@ -60,6 +60,8 @@ class UserModel {
   /// resolver: stored value, domain, then station / train assignment, and a Contractor Supervisor with
   /// neither defaults to station cleaning.
   String? get effectiveContractType {
+    // Contractor Supervisors run Station Cleaning; OBHS is handled by Janitors and Attendants.
+    if (role.toUpperCase().replaceAll(' ', '_') == 'CONTRACTOR_SUPERVISOR') return 'station_cleaning';
     final stored = contractType?.trim();
     if (stored != null && stored.isNotEmpty) return stored;
     final d = domain?.trim();

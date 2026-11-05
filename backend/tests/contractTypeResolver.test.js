@@ -39,4 +39,8 @@ describe('backfillContractType', () => {
     const b = await backfillContractType({ userType: 'contractor', contractType: 'obhs', stations: ['s1'] }, dbWith({}));
     expect(b.contractType).toBe('obhs');
   });
+  it('a Contractor Supervisor is always station cleaning in the login response, even if OBHS is stored', async () => {
+    const s = await backfillContractType({ userType: 'contractor', role: 'Contractor Supervisor', contractType: 'obhs', trainId: 't1' }, dbWith({}));
+    expect(s.contractType).toBe('station_cleaning');
+  });
 });

@@ -38,8 +38,8 @@ class _CommonContractsScreenState extends State<CommonContractsScreen>
     // Defer reading AuthProvider until after build context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-      if (user?.contractType != null) {
-        setState(() => _selectedContractType = user!.contractType);
+      if (user?.effectiveContractType != null) {
+        setState(() => _selectedContractType = user!.effectiveContractType);
       }
       _loadContracts();
     });
