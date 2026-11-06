@@ -1,6 +1,46 @@
 import { db, admin } from '../database/index.js';
-import { NotFoundError, ValidationError } from '../errors/index.js';
+import { NotFoundError, ValidationError, ForbiddenError } from '../errors/index.js';
 import logger from '../logger/index.js';
+
+const normRole = (r) => String(r || '').trim().toLowerCase().replace(/[_\s]+/g, ' ');
+const sameText = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+/** What a viewer may see: null = everything, otherwise the location fields to match. */
+export function auditScopeFor(user) {
+  if (!user) return null;
+  const role = normRole(user.role);
+  if (role === 'super admin' || role === 'company master') return null;
+  const scope = {};
+  if (role === 'railway master') {
+    if (user.zone) scope.zone = user.zone;
+  } else {
+    if (user.division) scope.division = user.division;
+    if (user.zone) scope.zone = user.zone;
+  }
+  if (String(user.userType || '').toLowerCase() === 'contractor' && user.entityId) scope.entityId = user.entityId;
+  return Object.keys(scope).length ? scope : null;
+}
+
+/** True unless the actor has location data that contradicts the scope. */
+export function actorInScope(actor, scope) {
+  if (!actor) return true;
+  for (const key of Object.keys(scope)) {
+    if (actor[key] && !sameText(actor[key], scope[key])) return false;
+  }
+  return true;
+}
+
+async function filterLogsByScope(logs, scope, database = db) {
+  const actorIds = [...new Set(logs.map((l) => l.actorId || l.userId).filter((id) => id && id !== 'anonymous'))];
+  const actors = new Map();
+  await Promise.all(actorIds.map(async (id) => {
+    try {
+      const doc = await database.collection('users').doc(id).get();
+      if (doc.exists) actors.set(id, doc.data());
+    } catch (_) { /* unknown actor: keep the log */ }
+  }));
+  return logs.filter((l) => actorInScope(actors.get(l.actorId || l.userId), scope));
+}
 
 class AuditService {
   async getAuditLogs(filters = {}) {
@@ -61,6 +101,23 @@ class AuditService {
     return { count: logs.length, logs };
   }
 
+  /**
+   * Audit logs limited to the viewer's location. A log is kept when the person who did it works in the
+   * same location as the viewer: same zone for a Railway Master, same division for other railway and
+   * contractor roles, and the same company for contractor roles. Logs whose actor or location is unknown
+   * (older records) are kept. Super Admin / Company Master see everything.
+   */
+  async getAuditLogsForUser(user, filters = {}) {
+    const scope = auditScopeFor(user);
+    if (!scope) return this.getAuditLogs(filters);
+
+    const wanted = Math.min(parseInt(filters.limit) || 50, 200);
+    const result = await this.getAuditLogs({ ...filters, limit: 200 });
+    const kept = await filterLogsByScope(result.logs, scope);
+    const logs = kept.slice(0, wanted);
+    return { count: logs.length, logs };
+  }
+
   async getAuditStats(filters = {}) {
     const snapshot = await db.collection('audit_logs').limit(200).get();
     const stats = {};
@@ -77,12 +134,17 @@ class AuditService {
     return { stats, total };
   }
 
-  async getStationAuditLogs(stationId, filters = {}) {
+  async getStationAuditLogs(stationId, filters = {}, user = null) {
     if (!stationId) throw new ValidationError('stationId is required');
     const { action, limit = 100 } = filters;
     const maxLimit = Math.min(parseInt(limit) || 100, 200);
 
     const stationDoc = await db.collection('stations').doc(stationId).get();
+    const scope = auditScopeFor(user);
+    const { entityId: _ignored, ...locationScope } = scope || {};
+    if (scope && stationDoc.exists && !actorInScope(stationDoc.data(), locationScope)) {
+      throw new ForbiddenError('This station is outside your location');
+    }
     const stationName = stationDoc.exists ? (stationDoc.data().stationName || '') : '';
 
     const contractSnap = await db.collection('contracts').where('stationIds', 'array-contains', stationId).limit(50).get();

@@ -1,6 +1,7 @@
 import { db } from '../database/index.js';
 import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/index.js';
 import { convertToDecimalDays } from '../utils/helpers.js';
+import { visibleTrainFilter } from '../utils/assignedTrains.js';
 
 const BLOCKED_ROLES = ['CONTRACTOR SUPERVISOR', 'CTS', 'RAILWAY SUPERVISOR', 'WORKER', 'RAILWAY WORKER'];
 const ALLOWED_FIELDS = ['trainNo', 'trainName', 'origin', 'destination', 'days', 'zone', 'division', 'depot', 'status', 'TrainApplicableFor', 'outboundTrainNo', 'inboundTrainNo', 'returnOffset', 'cycleLength', 'outboundDurationStr', 'inboundDurationStr', 'layoverDestStr', 'layoverOriginStr', 'journeyStartTime'];
@@ -266,6 +267,13 @@ class TrainService {
     trainList.sort((a, b) => {
       return String(a.trainNo || "").localeCompare(String(b.trainNo || ""), undefined, { numeric: true });
     });
+
+    // A Contractor Master/Admin only sees trains on their contract(s) or created by their company.
+    const visible = await visibleTrainFilter(userData);
+    if (visible) {
+      const mine = trainList.filter(visible);
+      return { count: mine.length, trains: mine };
+    }
 
     return { count: trainList.length, trains: trainList };
   }

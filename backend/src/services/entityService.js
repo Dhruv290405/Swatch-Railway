@@ -39,16 +39,17 @@ class EntityService {
       website: website || null,
       yearOfEstablishment: yearOfEstablishment || null,
       gemId: gemId || null,
-      status: 'PENDING',
+      // Entities are created by authorised admins only, so they need no second approval step.
+      status: 'APPROVED',
       createdBy: uid,
       createdByName: creatorName,
       createdAt: new Date().toISOString(),
       updatedBy: null,
       updatedByName: null,
       updatedAt: null,
-      approvedBy: null,
-      approvedByName: null,
-      approvedAt: null,
+      approvedBy: uid,
+      approvedByName: creatorName,
+      approvedAt: new Date().toISOString(),
       rejectedBy: null,
       rejectedByName: null,
       rejectedAt: null,
@@ -76,7 +77,10 @@ class EntityService {
     updates.updatedByName = editorName;
     updates.updatedAt = new Date().toISOString();
 
-    if (!updates.status || (updates.status !== 'APPROVED' && updates.status !== 'REJECTED')) {
+    if (!updates.status && currentData.status === 'APPROVED') {
+      // A plain edit of an approved entity must not send it back to the approval queue.
+      updates.status = 'APPROVED';
+    } else if (!updates.status || (updates.status !== 'APPROVED' && updates.status !== 'REJECTED')) {
       updates.status = 'PENDING';
     }
 

@@ -14,7 +14,7 @@ router.get('/api/audit-logs', verifyToken, asyncHandler(async (req, res) => {
     req.query.userId = req.user.uid; // Wait, some services log userId instead of actorId
     req.query.actorId = req.user.uid;
   }
-  const result = await auditService.getAuditLogs(req.query);
+  const result = await auditService.getAuditLogsForUser(req.user, req.query);
   
   // App expects type, so let's try to map it heuristically
   let logs = result.logs || [];

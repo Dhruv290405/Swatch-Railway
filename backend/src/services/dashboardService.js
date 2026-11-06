@@ -1,3 +1,5 @@
+import { scopedLocation } from '../utils/locationScope.js';
+
 /*
  * Required Firestore composite indexes (create in Firebase Console before deploying):
  *  1. Collection `daily_scorecards` – fields: `stationId` ASC, `date` ASC
@@ -36,7 +38,7 @@ class DashboardService {
 
   async getDashboardStats(requesterData, query = {}) {
     const { role, userType, zone: userZone, division: userDiv } = requesterData;
-    const { zone: queryZone, division: queryDivision } = query;
+    const { zone: queryZone, division: queryDivision } = scopedLocation(requesterData, query);
     const cacheKey = this._cacheKey('stats', { role, userZone, userDiv, queryZone, queryDivision });
     const cached = this._getCached(cacheKey);
     if (cached) return cached;
@@ -627,7 +629,9 @@ class DashboardService {
   }
 
   // Aggregate-only user counts (no user documents leave the server).
-  async getUserCounts({ zone, division, depot } = {}) {
+  async getUserCounts(query = {}, requester = null) {
+    const { zone, division } = scopedLocation(requester, query);
+    const depot = query.depot;
     const snap = await db.collection('users').get();
     const zones = new Set();
     const divisions = new Set();
@@ -650,8 +654,10 @@ class DashboardService {
 
   async getUserStats(requesterData = {}, query = {}) {
     const { role, userType, zone: userZone, division: userDiv } = requesterData;
-    const zone = query.selectedZone || query.zone || null;
-    const division = query.selectedDivision || query.division || null;
+    const { zone, division } = scopedLocation(requesterData, {
+      zone: query.selectedZone || query.zone,
+      division: query.selectedDivision || query.division,
+    });
     const depot = query.selectedDepot || query.depot || null;
 
     const userRole = (role || '').trim().toLowerCase().replace(/_/g, ' ');
@@ -694,8 +700,10 @@ class DashboardService {
 
   async getTrainStats(requesterData = {}, query = {}) {
     const { role, zone: userZone, division: userDiv } = requesterData;
-    const zone = query.selectedZone || query.zone || null;
-    const division = query.selectedDivision || query.division || null;
+    const { zone, division } = scopedLocation(requesterData, {
+      zone: query.selectedZone || query.zone,
+      division: query.selectedDivision || query.division,
+    });
     const depot = query.selectedDepot || query.depot || null;
 
     const userRole = (role || '').trim().toLowerCase().replace(/_/g, ' ');
@@ -763,8 +771,12 @@ class DashboardService {
     return { count: snapshot.size, workers: snapshot.docs.map(d => ({ id: d.id, ...d.data() })) };
   }
 
-  async getAllFormsStats(query = {}) {
-    const { formType, zone, division, entityId, days } = query;
+  async getAllFormsStats(query = {}, requester = null) {
+    const { formType, days } = query;
+    const { zone, division } = scopedLocation(requester, query);
+    // Contractor users only ever see their own company's forms.
+    const isContractor = String(requester?.userType || '').toLowerCase() === 'contractor';
+    const entityId = (isContractor && requester?.entityId) ? requester.entityId : query.entityId;
 
     // Helper to count statuses from a Firestore snapshot
     const countStatuses = (snapshot, minDate) => {

@@ -366,6 +366,9 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   bool _shouldShowTrainSelection() {
     if (_selectedRole == null) return false;
     final r = _selectedRole!.toUpperCase();
+    final contractType = _selectedContractData?['contractType'] as String?;
+    // A Station Cleaning contract is tied to stations, an OBHS contract to trains.
+    if (contractType == 'station_cleaning') return false;
     if (r.contains('WORKER') || r == 'JANITOR' || r == 'ATTENDANT') return true;
     if (r.contains('SUPERVISOR') || r.contains('CTS')) {
       if (_selectedContractData != null) {
@@ -390,10 +393,18 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
 
   bool _shouldShowStationSelection() {
     if (_selectedRole == null) return false;
-    if (_selectedRole!.toLowerCase().contains('worker')) return true;
-    if (_selectedRole!.toLowerCase().contains('inspector')) return true;
+    final role = _selectedRole!.toLowerCase();
+    // Railway Master / Railway Admin are scoped by zone (and division) only, never by station.
+    if (role == 'railway master' || role == 'railway admin') return false;
+    // OBHS contracts have no station; only Station Cleaning contracts pick one.
+    if (_selectedUserType == 'contractor' && _selectedContractData != null &&
+        _selectedContractData!['contractType'] == 'obhs') {
+      return false;
+    }
+    if (role.contains('worker')) return true;
+    if (role.contains('inspector')) return true;
     if (_selectedUserType == 'contractor' && _selectedCompany != null) return true;
-    if (_selectedUserType == 'railway') return true;
+    // Railway Supervisors work on trains (OBHS); Station Cleaning belongs to the contractor side.
     return false;
   }
 

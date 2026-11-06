@@ -455,7 +455,7 @@ class _ContractorMasterDashboardState extends State<ContractorMasterDashboard> {
         "roles": ["Contractor Master", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"],
         "children": [
           {"title": "User Management", "route": "users"},
-          {"title": "Entity Management", "route": "entities", "roles": ["Contractor Master", "Company Master", "Railway Master", "Railway Admin"]},
+          {"title": "Entity Management", "route": "entities", "roles": ["Company Master"]},
           {"title": "Contract Management", "route": "contracts", "roles": ["Contractor Master", "Company Master", "Railway Master", "Railway Admin"]},
           {"title": "Station Management", "route": "station_management_master", "contractTypes": ["station_cleaning"]},
           {"title": "Train Management", "route": "trains", "contractTypes": ["obhs"]},

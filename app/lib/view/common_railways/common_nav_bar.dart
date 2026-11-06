@@ -187,7 +187,16 @@ class CommonNavBar extends StatelessWidget {
           onItemSelected: controller.onTabSelected,
           confineToSafeArea: true,
           backgroundColor: Colors.white,
-          handleAndroidBackButtonPress: true,
+          // Phone back: pop any pushed screen first; from another tab go to the Dashboard;
+          // only leave the app from the Dashboard itself.
+          handleAndroidBackButtonPress: false,
+          onWillPop: (_) async {
+            if (controller.tabController.index != 0) {
+              controller.changeTab(0);
+              return false;
+            }
+            return true;
+          },
           resizeToAvoidBottomInset: true,
           stateManagement: true,
           decoration: NavBarDecoration(

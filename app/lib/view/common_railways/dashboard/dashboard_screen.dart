@@ -545,7 +545,7 @@ class _CommonDashboardState extends State<CommonDashboard> {
         "title": "Add New Entity",
         "subtitle": "Entity Registration",
         "color": Colors.red,
-        "roles": ["Super Admin", "Company Master", "Railway Master"]
+        "roles": ["Super Admin", "Company Master"]
       },
     ];
 
@@ -593,13 +593,13 @@ class _CommonDashboardState extends State<CommonDashboard> {
         "icon": Icons.cleaning_services_rounded,
         "title": "Station Cleaning",
         "contractTypes": ["station_cleaning"],
-        "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor", "Railway Inspector"],
+        "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Inspector"],
         "children": [
-          {"title": "Module Hub", "route": "sc_main", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor", "Railway Inspector"]},
+          {"title": "Module Hub", "route": "sc_main", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Inspector"]},
           {"title": "Area Management", "route": "sc_areas", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"]},
-          {"title": "Generate Tasks", "route": "sc_generate_tasks", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor"]},
-          {"title": "Shift Summary Approval", "route": "sc_shift_summary_approval", "roles": ["Super Admin", "Admin", "Railway Master", "Railway Admin", "Railway Supervisor", "Railway Inspector"]},
-          {"title": "Supervisor Attendance", "route": "sc_supervisor_attendance", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin", "Railway Supervisor"]},
+          {"title": "Generate Tasks", "route": "sc_generate_tasks", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"]},
+          {"title": "Shift Summary Approval", "route": "sc_shift_summary_approval", "roles": ["Super Admin", "Admin", "Railway Master", "Railway Admin", "Railway Inspector"]},
+          {"title": "Supervisor Attendance", "route": "sc_supervisor_attendance", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"]},
           {"title": "Supervisor Shifts", "route": "sc_supervisor_shifts", "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"]},
         ]
       },
@@ -626,7 +626,7 @@ class _CommonDashboardState extends State<CommonDashboard> {
           {"title": "Coach Reports", "route": "coach_reports", "contractTypes": ["coach"]},
           {"title": "Premise Reports", "route": "premise_reports", "contractTypes": ["premises"]},
           {"title": "CTS Reports", "route": "cts_reports", "contractTypes": ["cts"]},
-          {"title": "Station Reports", "route": "station_reports", "contractTypes": ["station_cleaning"]},
+          {"title": "Station Reports", "route": "station_reports", "contractTypes": ["station_cleaning"], "roles": ["Super Admin", "Company Master", "Contractor Admin", "Railway Master", "Railway Admin"]},
         ]
       },
       {

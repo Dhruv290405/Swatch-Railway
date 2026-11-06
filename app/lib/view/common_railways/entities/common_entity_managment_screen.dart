@@ -35,7 +35,7 @@ class _CommonEntityManagmentScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     loadAllEntity();
     _loadDrafts();
   }
@@ -54,6 +54,13 @@ class _CommonEntityManagmentScreenState
         rejectedEntity = rejected;
         suspendedEntity = suspended;
         _isLoading = false;
+        // Entities are created by admins and are approved on creation; the Pending tab only
+        // appears for older entities that are still waiting.
+        final wanted = pendingEntity.isNotEmpty ? 5 : 4;
+        if (_tabController.length != wanted) {
+          _tabController.dispose();
+          _tabController = TabController(length: wanted, vsync: this);
+        }
       });
     } catch (e) {
       setState(() => _isLoading = false);
@@ -260,7 +267,8 @@ class _CommonEntityManagmentScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildStatusCard("Pending", pendingEntity.length, Colors.orange),
+            if (pendingEntity.isNotEmpty)
+              _buildStatusCard("Pending", pendingEntity.length, Colors.orange),
             _buildStatusCard("Approved", approvedEntity.length, Colors.green),
             _buildStatusCard("Rejected", rejectedEntity.length, Colors.red),
             _buildStatusCard("Suspended", suspendedEntity.length, Colors.grey),
@@ -282,7 +290,7 @@ class _CommonEntityManagmentScreenState
             labelStyle: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w600),
             tabs: [
-              Tab(text: "Pending (${pendingEntity.length})"),
+              if (pendingEntity.isNotEmpty) Tab(text: "Pending (${pendingEntity.length})"),
               Tab(text: "Approved (${approvedEntity.length})"),
               Tab(text: "Rejected (${rejectedEntity.length})"),
               Tab(text: "Suspended (${suspendedEntity.length})"),
@@ -298,7 +306,7 @@ class _CommonEntityManagmentScreenState
             physics: NeverScrollableScrollPhysics(),
             controller: _tabController,
             children: [
-              _buildPendingTab(),
+              if (pendingEntity.isNotEmpty) _buildPendingTab(),
               _buildApprovedTab(approvedEntity),
               _buildApprovedTab(rejectedEntity, isRejected: true),
               _buildApprovedTab(suspendedEntity, isSuspended: true),
